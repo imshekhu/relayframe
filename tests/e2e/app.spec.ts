@@ -170,7 +170,7 @@ test("supports asset import, details, brand versioning, credits, and settings", 
     .click();
   await expect(page.locator(".asset-grid > article")).toHaveCount(3);
   await page
-    .getByRole("button", { name: "Launch packaging reference" })
+    .getByRole("button", { name: "Launch packaging reference", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "Launch packaging reference" }),
