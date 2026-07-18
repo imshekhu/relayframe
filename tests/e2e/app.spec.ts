@@ -196,7 +196,7 @@ test("supports asset import, details, brand versioning, credits, and settings", 
     .click();
   await page.getByRole("button", { name: "Buy credits" }).click();
   await page.getByRole("button", { name: /1,000 credits/ }).click();
-  await expect(page.getByText("2,250", { exact: true })).toBeVisible();
+  await expect(page.locator(".balance-card strong")).toHaveText("2,250");
 
   await page.getByRole("button", { name: "Settings" }).click();
   await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
