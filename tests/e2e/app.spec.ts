@@ -99,7 +99,9 @@ test("supports global search and functional studio prompt tools", async ({
 }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop shortcut journey");
   await page.goto("/");
-  await page.keyboard.press("Control+k");
+  await page
+    .getByRole("button", { name: "Search projects, assets, and prompts" })
+    .click();
   const search = page.getByLabel("Search everything");
   await expect(search).toBeVisible();
   await search.fill("Luma launch");
