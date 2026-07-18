@@ -259,7 +259,7 @@ function initialState(): DemoState {
 const globalStore = globalThis as typeof globalThis & {
   __relayFrameDemoState?: DemoState;
 };
-const state = (globalStore.__relayFrameDemoState ??= initialState());
+let state = (globalStore.__relayFrameDemoState ??= initialState());
 
 function id(prefix: string) {
   return `${prefix}_${randomUUID().replaceAll("-", "").slice(0, 16)}`;
@@ -295,6 +295,12 @@ export function requireDemoOrganization(organizationId: string | null) {
     throw new Error("Organization not found");
   }
   return ORG_ID;
+}
+
+export function resetDemoState() {
+  state = initialState();
+  globalStore.__relayFrameDemoState = state;
+  return demoSnapshot();
 }
 
 export function demoSnapshot() {

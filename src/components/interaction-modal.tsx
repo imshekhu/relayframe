@@ -5,7 +5,6 @@ import {
   Boxes,
   Check,
   CircleDollarSign,
-  CreditCard,
   FolderPlus,
   Gauge,
   Image as ImageIcon,
