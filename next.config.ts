@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  allowedDevOrigins: ["10.0.0.84", "100.75.200.96", "xbuntu-nas"],
   turbopack: {
     root: process.cwd(),
   },
@@ -16,10 +17,6 @@ const nextConfig: NextConfig = {
           {
             key: "Permissions-Policy",
             value: "camera=(), microphone=(), geolocation=()",
-          },
-          {
-            key: "Cross-Origin-Opener-Policy",
-            value: "same-origin",
           },
         ],
       },
