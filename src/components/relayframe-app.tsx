@@ -54,6 +54,10 @@ import type {
   StoryboardFrame,
   TestCard,
 } from "@/domain/types";
+import {
+  InteractionModal,
+  type ModalKind,
+} from "@/components/interaction-modal";
 
 type View =
   | "home"
@@ -158,7 +162,14 @@ export function RelayFrameApp({
   const [snapshot, setSnapshot] = useState(initialSnapshot);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
+  const [studioSeed, setStudioSeed] = useState("");
+  const [modal, setModal] = useState<{
+    kind: ModalKind;
+    asset?: Asset;
+    job?: Generation;
+  } | null>(null);
 
   const refresh = useCallback(async () => {
     const response = await fetch("/api/demo", {
@@ -186,7 +197,43 @@ export function RelayFrameApp({
     return () => window.clearTimeout(timer);
   }, [notice]);
 
+  useEffect(() => {
+    const shortcuts = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setSearchOpen(true);
+      }
+      if (event.key === "Escape") setSearchOpen(false);
+    };
+    window.addEventListener("keydown", shortcuts);
+    return () => window.removeEventListener("keydown", shortcuts);
+  }, []);
+
   const activeProject = snapshot.projects[0];
+  const searchResults = [
+    ...snapshot.projects.map((project) => ({
+      type: "Project",
+      label: project.name,
+      detail: stateLabels[project.state],
+      view: "projects" as View,
+    })),
+    ...snapshot.assets.map((asset) => ({
+      type: "Asset",
+      label: asset.name,
+      detail: asset.type,
+      view: "library" as View,
+    })),
+    ...snapshot.testCards.map((card) => ({
+      type: "Test Card",
+      label: card.title,
+      detail: strategyLabels[card.strategy],
+      view: "projects" as View,
+    })),
+  ].filter((result) =>
+    `${result.label} ${result.detail}`
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase()),
+  );
 
   return (
     <div className={`app-shell ${sidebarOpen ? "" : "sidebar-collapsed"}`}>
@@ -208,6 +255,9 @@ export function RelayFrameApp({
           className="workspace-switcher"
           type="button"
           aria-label="Switch workspace"
+          onClick={() =>
+            setNotice("Northstar Creative is the active demo workspace")
+          }
         >
           <span>NC</span>
           <span>
@@ -260,11 +310,15 @@ export function RelayFrameApp({
               <i style={{ width: "34%" }} />
             </div>
           </div>
-          <button type="button">
+          <button type="button" onClick={() => setModal({ kind: "settings" })}>
             <Settings size={17} />
             <span>Settings</span>
           </button>
-          <button className="profile-row" type="button">
+          <button
+            className="profile-row"
+            type="button"
+            onClick={() => setModal({ kind: "profile" })}
+          >
             <span className="avatar">SS</span>
             <span>
               <b>Shourya</b>
@@ -298,7 +352,7 @@ export function RelayFrameApp({
           <div className="topbar-actions">
             <span className="system-status">
               <i />
-              All systems operational
+              Demo provider healthy
             </span>
             <button
               className="credit-pill"
@@ -308,7 +362,12 @@ export function RelayFrameApp({
               <Zap size={14} />
               {snapshot.availableCredits.toLocaleString()}
             </button>
-            <button className="icon-button" type="button" aria-label="Notifications">
+            <button
+              className="icon-button"
+              type="button"
+              aria-label="Notifications"
+              onClick={() => setModal({ kind: "notifications" })}
+            >
               <Bell size={17} />
               <i className="notification-dot" />
             </button>
@@ -329,12 +388,20 @@ export function RelayFrameApp({
               snapshot={snapshot}
               onView={setView}
               project={activeProject}
+              onModal={(kind) => setModal({ kind })}
+              onStudioPrompt={(prompt) => {
+                setStudioSeed(prompt);
+                setView("studio");
+              }}
             />
           )}
           {view === "studio" && (
             <Studio
               snapshot={snapshot}
               models={models}
+              promptSeed={studioSeed}
+              onModal={(kind) => setModal({ kind })}
+              onNotice={setNotice}
               onGenerated={async () => {
                 await refresh();
                 setNotice("Generation reserved and queued");
@@ -344,16 +411,40 @@ export function RelayFrameApp({
           {view === "projects" && (
             <ProjectsView
               snapshot={snapshot}
+              onModal={(kind) => setModal({ kind })}
               onChanged={async (message) => {
                 await refresh();
                 setNotice(message);
               }}
             />
           )}
-          {view === "library" && <LibraryView snapshot={snapshot} />}
-          {view === "jobs" && <JobsView snapshot={snapshot} />}
-          {view === "brand" && <BrandView snapshot={snapshot} />}
-          {view === "billing" && <BillingView snapshot={snapshot} />}
+          {view === "library" && (
+            <LibraryView
+              snapshot={snapshot}
+              onModal={(kind, payload) => setModal({ kind, ...payload })}
+              onNotice={setNotice}
+            />
+          )}
+          {view === "jobs" && (
+            <JobsView
+              snapshot={snapshot}
+              onModal={(job) => setModal({ kind: "job", job })}
+              onView={setView}
+            />
+          )}
+          {view === "brand" && (
+            <BrandView
+              snapshot={snapshot}
+              onEdit={() => setModal({ kind: "brand" })}
+            />
+          )}
+          {view === "billing" && (
+            <BillingView
+              snapshot={snapshot}
+              onModal={(kind) => setModal({ kind })}
+              onNotice={setNotice}
+            />
+          )}
         </div>
       </main>
 
@@ -368,7 +459,13 @@ export function RelayFrameApp({
           <section role="dialog" aria-modal="true" aria-label="Search RelayFrame">
             <div className="command-input">
               <Search size={18} />
-              <input autoFocus placeholder="Search everything..." />
+              <input
+                autoFocus
+                aria-label="Search everything"
+                placeholder="Search everything..."
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+              />
               <button
                 type="button"
                 onClick={() => setSearchOpen(false)}
@@ -377,23 +474,62 @@ export function RelayFrameApp({
                 <X size={16} />
               </button>
             </div>
-            <p>Quick navigation</p>
-            {nav.slice(1).map((item) => (
-              <button
-                type="button"
-                key={item.id}
-                onClick={() => {
-                  setView(item.id);
-                  setSearchOpen(false);
-                }}
-              >
-                <item.icon size={17} />
-                <span>{item.label}</span>
-                <ArrowRight size={15} />
-              </button>
-            ))}
+            <p>{searchQuery ? "Search results" : "Quick navigation"}</p>
+            {searchQuery
+              ? searchResults.slice(0, 8).map((result, index) => (
+                  <button
+                    type="button"
+                    key={`${result.type}-${result.label}-${index}`}
+                    onClick={() => {
+                      setView(result.view);
+                      setSearchOpen(false);
+                      setSearchQuery("");
+                    }}
+                  >
+                    <Search size={16} />
+                    <span>
+                      {result.label}
+                      <small>{result.type} · {result.detail}</small>
+                    </span>
+                    <ArrowRight size={15} />
+                  </button>
+                ))
+              : [...nav, ...secondaryNav].map((item) => (
+                  <button
+                    type="button"
+                    key={item.id}
+                    onClick={() => {
+                      setView(item.id);
+                      setSearchOpen(false);
+                    }}
+                  >
+                    <item.icon size={17} />
+                    <span>{item.label}</span>
+                    <ArrowRight size={15} />
+                  </button>
+                ))}
+            {searchQuery && searchResults.length === 0 && (
+              <div className="command-empty">No matching projects, assets, or Test Cards.</div>
+            )}
           </section>
         </div>
+      )}
+
+      {modal && (
+        <InteractionModal
+          kind={modal.kind}
+          payload={{ asset: modal.asset, job: modal.job }}
+          project={activeProject}
+          brand={snapshot.brands[0]}
+          models={models}
+          audits={snapshot.audits}
+          onClose={() => setModal(null)}
+          onRefresh={refresh}
+          onNotice={setNotice}
+          onCamera={(value) => {
+            setStudioSeed((current) => `${current || ""}${current ? ". " : ""}${value}`);
+          }}
+        />
       )}
 
       {notice && (
@@ -410,10 +546,14 @@ function Overview({
   snapshot,
   onView,
   project,
+  onModal,
+  onStudioPrompt,
 }: {
   snapshot: Snapshot;
   onView: (view: View) => void;
   project: Project;
+  onModal: (kind: ModalKind) => void;
+  onStudioPrompt: (prompt: string) => void;
 }) {
   const approvedCards = snapshot.testCards.filter(
     (card) => card.state === "approved",
@@ -434,7 +574,19 @@ function Overview({
           <p>Turn the next creative hypothesis into something worth testing.</p>
         </div>
         <div className="heading-actions">
-          <button className="secondary-button" type="button">
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => onModal("project")}
+          >
+            <Plus size={15} />
+            New project
+          </button>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => onModal("upload")}
+          >
             <Upload size={15} />
             Import assets
           </button>
@@ -459,7 +611,14 @@ function Overview({
             <h2>What should we make next?</h2>
           </div>
         </div>
-        <button type="button" onClick={() => onView("studio")}>
+        <button
+          type="button"
+          onClick={() =>
+            onStudioPrompt(
+              "Premium product campaign with three controlled creative variants",
+            )
+          }
+        >
           Describe an image, video, or campaign batch...
           <span>
             <Command size={14} />
@@ -468,13 +627,34 @@ function Overview({
         </button>
         <div className="suggestion-row">
           <span>Try</span>
-          <button type="button" onClick={() => onView("studio")}>
+          <button
+            type="button"
+            onClick={() =>
+              onStudioPrompt(
+                "Premium product hero on a sculptural plinth, editorial lighting",
+              )
+            }
+          >
             Product hero
           </button>
-          <button type="button" onClick={() => onView("studio")}>
+          <button
+            type="button"
+            onClick={() =>
+              onStudioPrompt(
+                "Authentic UGC storyboard showing a complete product ritual",
+              )
+            }
+          >
             UGC storyboard
           </button>
-          <button type="button" onClick={() => onView("studio")}>
+          <button
+            type="button"
+            onClick={() =>
+              onStudioPrompt(
+                "Create six controlled launch variants across hook and visual treatment",
+              )
+            }
+          >
             Launch variants
           </button>
         </div>
@@ -573,7 +753,10 @@ function Overview({
               <p className="eyebrow">Workspace</p>
               <h2>Recent activity</h2>
             </div>
-            <button type="button">
+            <button
+              type="button"
+              onClick={() => onModal("notifications")}
+            >
               View all
             </button>
           </div>
@@ -635,10 +818,16 @@ function Metric({
 function Studio({
   snapshot,
   models,
+  promptSeed,
+  onModal,
+  onNotice,
   onGenerated,
 }: {
   snapshot: Snapshot;
   models: ModelCapability[];
+  promptSeed: string;
+  onModal: (kind: ModalKind) => void;
+  onNotice: (message: string) => void;
   onGenerated: () => Promise<void>;
 }) {
   const [operation, setOperation] =
@@ -648,7 +837,8 @@ function Studio({
   );
   const [modelId, setModelId] = useState(eligibleModels[0]?.id ?? "");
   const [prompt, setPrompt] = useState(
-    "Premium functional beverage on a sculptural stone plinth, calm morning light, editorial product photography, sage and citrus palette",
+    promptSeed ||
+      "Premium functional beverage on a sculptural stone plinth, calm morning light, editorial product photography, sage and citrus palette",
   );
   const [aspectRatio, setAspectRatio] = useState("4:5");
   const [outputCount, setOutputCount] = useState(2);
@@ -659,10 +849,18 @@ function Studio({
     ? modelId
     : (eligibleModels[0]?.id ?? "");
   const selectedModel = models.find((model) => model.id === effectiveModelId);
+  const supportedRatios = selectedModel?.aspectRatios ?? ["1:1"];
+  const effectiveAspectRatio = supportedRatios.includes(aspectRatio)
+    ? aspectRatio
+    : supportedRatios[0];
+  const effectiveOutputCount = Math.min(
+    outputCount,
+    selectedModel?.maxOutputs ?? 1,
+  );
   const estimate = selectedModel
     ? Math.ceil(
         (selectedModel.baseCredits +
-          selectedModel.creditPerOutput * outputCount) *
+          selectedModel.creditPerOutput * effectiveOutputCount) *
           (operation.includes("video") ? 2.4 : 1),
       )
     : 0;
@@ -670,26 +868,35 @@ function Studio({
   async function generate() {
     setSubmitting(true);
     setError(null);
-    const response = await fetch("/api/generations", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-relayframe-organization": "org_demo",
-      },
-      body: JSON.stringify({
-        projectId: snapshot.projects[0]?.id,
-        operation,
-        prompt,
-        modelId: effectiveModelId,
-        aspectRatio,
-        outputCount,
-        idempotencyKey: `ui-${crypto.randomUUID()}`,
-      }),
-    });
-    const result = (await response.json()) as { error?: string };
-    if (!response.ok) setError(result.error ?? "Generation failed");
-    else await onGenerated();
-    setSubmitting(false);
+    try {
+      const response = await fetch("/api/generations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-relayframe-organization": "org_demo",
+        },
+        body: JSON.stringify({
+          projectId: snapshot.projects[0]?.id,
+          operation,
+          prompt,
+          modelId: effectiveModelId,
+          aspectRatio: effectiveAspectRatio,
+          outputCount: effectiveOutputCount,
+          idempotencyKey: `ui-${crypto.randomUUID()}`,
+        }),
+      });
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? "Generation failed");
+      await onGenerated();
+    } catch (generationError) {
+      setError(
+        generationError instanceof Error
+          ? generationError.message
+          : "Generation failed",
+      );
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -702,7 +909,9 @@ function Studio({
         </div>
         <div className="model-health">
           <span><i /> {models.length} models available</span>
-          <button type="button">Capability registry</button>
+          <button type="button" onClick={() => onModal("capabilities")}>
+            Capability registry
+          </button>
         </div>
       </div>
 
@@ -744,14 +953,34 @@ function Studio({
               rows={7}
             />
             <div className="prompt-tools">
-              <button type="button"><BriefcaseBusiness size={14} /> Apply brand</button>
-              <button type="button"><Aperture size={14} /> Camera recipe</button>
-              <button type="button"><Sparkles size={14} /> Enhance</button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPrompt((value) =>
+                    `${value}. Apply Luma Labs brand palette, evidence-aware tone, and approved product claims only.`,
+                  );
+                  onNotice("Brand rules applied to prompt");
+                }}
+              ><BriefcaseBusiness size={14} /> Apply brand</button>
+              <button type="button" onClick={() => onModal("camera")}><Aperture size={14} /> Camera recipe</button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPrompt((value) =>
+                    `${value}. Add precise composition, realistic material detail, controlled highlights, and production-ready negative space.`,
+                  );
+                  onNotice("Prompt enhanced");
+                }}
+              ><Sparkles size={14} /> Enhance</button>
             </div>
           </label>
 
           {operation.includes("image_to") && (
-            <button className="reference-drop" type="button">
+            <button
+              className="reference-drop"
+              type="button"
+              onClick={() => onModal("upload")}
+            >
               <Upload size={20} />
               <span><b>Add reference media</b><small>PNG, JPG or WEBP up to 20 MB</small></span>
             </button>
@@ -774,10 +1003,10 @@ function Studio({
             <label>
               <span>Aspect ratio</span>
               <select
-                value={aspectRatio}
+                value={effectiveAspectRatio}
                 onChange={(event) => setAspectRatio(event.target.value)}
               >
-                {["1:1", "4:5", "9:16", "16:9"].map((ratio) => (
+                {supportedRatios.map((ratio) => (
                   <option key={ratio}>{ratio}</option>
                 ))}
               </select>
@@ -785,10 +1014,13 @@ function Studio({
             <label>
               <span>Outputs</span>
               <select
-                value={outputCount}
+                value={effectiveOutputCount}
                 onChange={(event) => setOutputCount(Number(event.target.value))}
               >
-                {[1, 2, 3, 4].map((count) => (
+                {Array.from(
+                  { length: selectedModel?.maxOutputs ?? 1 },
+                  (_, index) => index + 1,
+                ).map((count) => (
                   <option key={count}>{count}</option>
                 ))}
               </select>
@@ -816,7 +1048,7 @@ function Studio({
             {submitting ? (
               <><span className="spinner" /> Reserving & queuing...</>
             ) : (
-              <><Sparkles size={17} /> Generate {outputCount} concepts <ArrowRight size={16} /></>
+              <><Sparkles size={17} /> Generate {effectiveOutputCount} concepts <ArrowRight size={16} /></>
             )}
           </button>
         </section>
@@ -863,25 +1095,65 @@ function Studio({
 
 function ProjectsView({
   snapshot,
+  onModal,
   onChanged,
 }: {
   snapshot: Snapshot;
+  onModal: (kind: ModalKind) => void;
   onChanged: (message: string) => Promise<void>;
 }) {
-  const project = snapshot.projects[0];
+  const [selectedProjectId, setSelectedProjectId] = useState(
+    snapshot.projects[0].id,
+  );
+  const project =
+    snapshot.projects.find((item) => item.id === selectedProjectId) ??
+    snapshot.projects[0];
   const cards = snapshot.testCards.filter((card) => card.projectId === project.id);
+  const cardIds = new Set(cards.map((card) => card.id));
+  const [pendingCard, setPendingCard] = useState<string | null>(null);
+  const [producing, setProducing] = useState(false);
+  const [mutationError, setMutationError] = useState<string | null>(null);
 
   async function updateCard(cardId: string, state: TestCard["state"]) {
-    const response = await fetch(`/api/test-cards/${cardId}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        "x-relayframe-organization": "org_demo",
-      },
-      body: JSON.stringify({ state }),
-    });
-    if (response.ok) {
-      await onChanged(state === "approved" ? "Test Card approved" : "Test Card updated");
+    setPendingCard(cardId);
+    setMutationError(null);
+    try {
+      const response = await fetch(`/api/test-cards/${cardId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-relayframe-organization": "org_demo",
+        },
+        body: JSON.stringify({ state }),
+      });
+      if (!response.ok) throw new Error("Could not update Test Card");
+      await onChanged(
+        state === "approved" ? "Test Card approved" : "Test Card updated",
+      );
+    } catch (error) {
+      setMutationError(error instanceof Error ? error.message : "Update failed");
+    } finally {
+      setPendingCard(null);
+    }
+  }
+
+  async function produceApproved() {
+    setProducing(true);
+    setMutationError(null);
+    try {
+      const response = await fetch(`/api/projects/${project.id}/produce`, {
+        method: "POST",
+        headers: { "x-relayframe-organization": "org_demo" },
+      });
+      if (!response.ok) {
+        const result = (await response.json()) as { error?: string };
+        throw new Error(result.error ?? "Production failed");
+      }
+      await onChanged("Approved concepts queued for production");
+    } catch (error) {
+      setMutationError(error instanceof Error ? error.message : "Production failed");
+    } finally {
+      setProducing(false);
     }
   }
 
@@ -889,7 +1161,17 @@ function ProjectsView({
     <div className="projects-view">
       <div className="page-heading project-page-heading">
         <div>
-          <p className="breadcrumb">Projects / {project.name}</p>
+          <label className="project-picker">
+            <span>Project</span>
+            <select
+              value={project.id}
+              onChange={(event) => setSelectedProjectId(event.target.value)}
+            >
+              {snapshot.projects.map((item) => (
+                <option value={item.id} key={item.id}>{item.name}</option>
+              ))}
+            </select>
+          </label>
           <div className="project-title-row">
             <h1>{project.name}</h1>
             <span className="project-state">{stateLabels[project.state]}</span>
@@ -897,8 +1179,17 @@ function ProjectsView({
           <p>{project.objective}</p>
         </div>
         <div className="heading-actions">
-          <button className="secondary-button" type="button"><Users size={15} /> Share review</button>
-          <button className="primary-button" type="button"><Film size={15} /> Produce approved</button>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => onModal("review")}
+          ><Users size={15} /> Share review</button>
+          <button
+            className="primary-button"
+            type="button"
+            disabled={producing}
+            onClick={() => void produceApproved()}
+          ><Film size={15} /> {producing ? "Queuing..." : "Produce approved"}</button>
         </div>
       </div>
 
@@ -916,8 +1207,13 @@ function ProjectsView({
             <h2>Creative Test Cards</h2>
             <p>Each concept changes one strategic variable while preserving the campaign constants.</p>
           </div>
-          <button className="secondary-button" type="button"><Plus size={15} /> Add Test Card</button>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => onModal("test-card")}
+          ><Plus size={15} /> Add Test Card</button>
         </div>
+        {mutationError && <p className="inline-error">{mutationError}</p>}
         <div className="test-card-grid">
           {cards.map((card, index) => (
             <article className={`test-card test-card-${index}`} key={card.id}>
@@ -942,6 +1238,7 @@ function ProjectsView({
                 <button
                   type="button"
                   className={card.state === "rejected" ? "is-selected" : ""}
+                  disabled={pendingCard === card.id}
                   onClick={() => updateCard(card.id, "rejected")}
                 >
                   <X size={14} /> Reject
@@ -949,6 +1246,7 @@ function ProjectsView({
                 <button
                   type="button"
                   className={card.state === "approved" ? "is-selected approve" : "approve"}
+                  disabled={pendingCard === card.id}
                   onClick={() => updateCard(card.id, "approved")}
                 >
                   <Check size={14} /> Approve
@@ -969,7 +1267,9 @@ function ProjectsView({
           <span className="cost-saving"><ShieldCheck size={14} /> Final video spend protected</span>
         </div>
         <div className="storyboard-grid">
-          {snapshot.storyboardFrames.map((frame) => (
+          {snapshot.storyboardFrames
+            .filter((frame) => cardIds.has(frame.testCardId))
+            .map((frame) => (
             <article key={frame.id}>
               <AssetArt url={frame.imageUrl!} label={frame.shot} />
               <div>
@@ -988,7 +1288,25 @@ function ProjectsView({
   );
 }
 
-function LibraryView({ snapshot }: { snapshot: Snapshot }) {
+function LibraryView({
+  snapshot,
+  onModal,
+  onNotice,
+}: {
+  snapshot: Snapshot;
+  onModal: (
+    kind: ModalKind,
+    payload?: { asset?: Asset; job?: Generation },
+  ) => void;
+  onNotice: (message: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [type, setType] = useState("all");
+  const filteredAssets = snapshot.assets.filter(
+    (asset) =>
+      (type === "all" || asset.type === type) &&
+      asset.name.toLowerCase().includes(query.toLowerCase()),
+  );
   return (
     <div className="library-view">
       <div className="page-heading">
@@ -998,30 +1316,46 @@ function LibraryView({ snapshot }: { snapshot: Snapshot }) {
           <p>Sources, intermediates and approved outputs with complete lineage.</p>
         </div>
         <div className="heading-actions">
-          <button className="secondary-button" type="button"><Upload size={15} /> Upload</button>
-          <button className="primary-button" type="button"><Plus size={15} /> New folder</button>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => onModal("upload")}
+          ><Upload size={15} /> Upload</button>
+          <button
+            className="primary-button"
+            type="button"
+            onClick={() => onModal("folder")}
+          ><Plus size={15} /> New folder</button>
         </div>
       </div>
       <div className="library-toolbar">
-        <div><Search size={15} /><input placeholder="Search assets..." /></div>
-        <button type="button">All media <ChevronDown size={13} /></button>
-        <button type="button">All projects <ChevronDown size={13} /></button>
-        <span>{snapshot.assets.length} assets</span>
+        <div><Search size={15} /><input aria-label="Search assets" placeholder="Search assets..." value={query} onChange={(event) => setQuery(event.target.value)} /></div>
+        <select aria-label="Filter media type" value={type} onChange={(event) => setType(event.target.value)}>
+          <option value="all">All media</option>
+          <option value="image">Images</option>
+          <option value="video">Videos</option>
+          <option value="reference">References</option>
+          <option value="logo">Logos</option>
+        </select>
+        <button type="button" onClick={() => onNotice("Showing assets across all projects")}>All projects <ChevronDown size={13} /></button>
+        <span>{filteredAssets.length} assets</span>
       </div>
       <div className="asset-grid">
-        {snapshot.assets.map((asset) => (
-          <article key={asset.id}>
-            <AssetArt url={asset.url} label={asset.name} />
+        {filteredAssets.map((asset) => (
+          <article key={asset.id} onDoubleClick={() => onModal("asset", { asset })}>
+            <button className="asset-preview-button" type="button" onClick={() => onModal("asset", { asset })}>
+              <AssetArt url={asset.url} label={asset.name} />
+            </button>
             <div className="asset-meta">
               <span className="asset-type"><ImageIcon size={12} /> {asset.type}</span>
-              <button type="button" aria-label={`More options for ${asset.name}`}><MoreHorizontal size={16} /></button>
+              <button type="button" aria-label={`More options for ${asset.name}`} onClick={() => onModal("asset", { asset })}><MoreHorizontal size={16} /></button>
               <b>{asset.name}</b>
               <p>{asset.width} × {asset.height} · {relativeTime(asset.createdAt)}</p>
               {asset.generationId && <small><Boxes size={11} /> Generated with lineage</small>}
             </div>
           </article>
         ))}
-        <button className="upload-card" type="button">
+        <button className="upload-card" type="button" onClick={() => onModal("upload")}>
           <Upload size={22} />
           <b>Upload source media</b>
           <span>Images, video, logos and references</span>
@@ -1031,7 +1365,15 @@ function LibraryView({ snapshot }: { snapshot: Snapshot }) {
   );
 }
 
-function JobsView({ snapshot }: { snapshot: Snapshot }) {
+function JobsView({
+  snapshot,
+  onModal,
+  onView,
+}: {
+  snapshot: Snapshot;
+  onModal: (job: Generation) => void;
+  onView: (view: View) => void;
+}) {
   return (
     <div className="jobs-view">
       <div className="page-heading">
@@ -1046,6 +1388,13 @@ function JobsView({ snapshot }: { snapshot: Snapshot }) {
           <span><Activity size={25} /></span>
           <h2>No generation jobs yet</h2>
           <p>Start in Generate to see durable job progress and settlement.</p>
+          <button
+            className="primary-button"
+            type="button"
+            onClick={() => onView("studio")}
+          >
+            <Sparkles size={15} /> Start generation
+          </button>
         </div>
       ) : (
         <section className="job-table panel">
@@ -1053,14 +1402,19 @@ function JobsView({ snapshot }: { snapshot: Snapshot }) {
             <span>Job</span><span>Model</span><span>Status</span><span>Progress</span><span>Cost</span><span>Created</span>
           </div>
           {snapshot.generations.map((generation) => (
-            <div className="job-row" key={generation.id}>
+            <button
+              className="job-row"
+              key={generation.id}
+              type="button"
+              onClick={() => onModal(generation)}
+            >
               <span><b>{generation.operation.replaceAll("_", " ")}</b><small>{generation.id.slice(0, 12)}</small></span>
               <span>{generation.modelId}</span>
               <StatusDot state={generation.state} />
               <span className="job-progress"><i style={{ width: `${generation.progress}%` }} /><small>{generation.progress}%</small></span>
               <span>{generation.state === "completed" ? generation.consumedCredits : generation.reservedCredits} cr</span>
               <span>{relativeTime(generation.createdAt)}</span>
-            </div>
+            </button>
           ))}
         </section>
       )}
@@ -1068,7 +1422,13 @@ function JobsView({ snapshot }: { snapshot: Snapshot }) {
   );
 }
 
-function BrandView({ snapshot }: { snapshot: Snapshot }) {
+function BrandView({
+  snapshot,
+  onEdit,
+}: {
+  snapshot: Snapshot;
+  onEdit: () => void;
+}) {
   const brand = snapshot.brands[0];
   return (
     <div className="brand-view">
@@ -1080,7 +1440,9 @@ function BrandView({ snapshot }: { snapshot: Snapshot }) {
         </div>
         <div className="heading-actions">
           <span className="version-badge"><BadgeCheck size={14} /> Version {brand.version}</span>
-          <button className="primary-button" type="button">Edit brand pack</button>
+          <button className="primary-button" type="button" onClick={onEdit}>
+            Edit brand pack
+          </button>
         </div>
       </div>
       <div className="brand-layout">
@@ -1115,7 +1477,7 @@ function BrandView({ snapshot }: { snapshot: Snapshot }) {
           <div className="panel-heading"><div><p className="eyebrow">Audience memory</p><h2>Priority segments</h2></div></div>
           {brand.audiences.map((audience, index) => (
             <div className="audience-row" key={audience}>
-              <span>{index + 1}</span><p>{audience}</p><button type="button"><MoreHorizontal size={15} /></button>
+              <span>{index + 1}</span><p>{audience}</p><button type="button" aria-label={`Edit audience: ${audience}`} onClick={onEdit}><MoreHorizontal size={15} /></button>
             </div>
           ))}
         </section>
@@ -1124,10 +1486,41 @@ function BrandView({ snapshot }: { snapshot: Snapshot }) {
   );
 }
 
-function BillingView({ snapshot }: { snapshot: Snapshot }) {
+function BillingView({
+  snapshot,
+  onModal,
+  onNotice,
+}: {
+  snapshot: Snapshot;
+  onModal: (kind: ModalKind) => void;
+  onNotice: (message: string) => void;
+}) {
   const consumed = snapshot.ledger
     .filter((entry) => entry.type === "consumption")
     .reduce((sum, entry) => sum + entry.amount, 0);
+  function exportLedger() {
+    const rows = [
+      ["id", "type", "amount", "generation_id", "created_at"],
+      ...snapshot.ledger.map((entry) => [
+        entry.id,
+        entry.type,
+        String(entry.amount),
+        entry.generationId ?? "",
+        entry.createdAt,
+      ]),
+    ];
+    const blob = new Blob(
+      [rows.map((row) => row.map((cell) => JSON.stringify(cell)).join(",")).join("\n")],
+      { type: "text/csv" },
+    );
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "relayframe-credit-ledger.csv";
+    anchor.click();
+    URL.revokeObjectURL(url);
+    onNotice("Ledger CSV exported");
+  }
   return (
     <div className="billing-view">
       <div className="page-heading">
@@ -1136,7 +1529,7 @@ function BillingView({ snapshot }: { snapshot: Snapshot }) {
           <h1>Usage & billing</h1>
           <p>Immutable credit events, reservations and actual settlement.</p>
         </div>
-        <button className="primary-button" type="button">Buy credits</button>
+        <button className="primary-button" type="button" onClick={() => onModal("credits")}>Buy credits</button>
       </div>
       <div className="billing-cards">
         <article className="balance-card">
@@ -1144,7 +1537,7 @@ function BillingView({ snapshot }: { snapshot: Snapshot }) {
           <p>Available balance</p>
           <strong>{snapshot.availableCredits.toLocaleString()}</strong>
           <small>credits</small>
-          <button type="button">Manage plan <ArrowRight size={14} /></button>
+          <button type="button" onClick={() => onModal("settings")}>Manage plan <ArrowRight size={14} /></button>
         </article>
         <article><p>Current plan</p><strong>Agency</strong><small>10 brands · 10 seats · priority queue</small></article>
         <article><p>Consumed this cycle</p><strong>{consumed}</strong><small>credits settled to completed jobs</small></article>
@@ -1153,7 +1546,7 @@ function BillingView({ snapshot }: { snapshot: Snapshot }) {
       <section className="ledger-panel panel">
         <div className="panel-heading">
           <div><p className="eyebrow">Reconstructable balance</p><h2>Credit ledger</h2></div>
-          <button type="button">Export CSV</button>
+          <button type="button" onClick={exportLedger}>Export CSV</button>
         </div>
         <div className="ledger-list">
           {[...snapshot.ledger].reverse().map((entry) => (

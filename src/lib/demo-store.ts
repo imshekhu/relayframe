@@ -467,3 +467,212 @@ export function updateTestCardState(
   audit("test_card.updated", "test_card", cardId, { state: cardState });
   return card;
 }
+
+export function createDemoProject(
+  organizationId: string,
+  input: { name: string; objective: string; budgetCredits: number },
+) {
+  requireDemoOrganization(organizationId);
+  const project: Project = {
+    id: id("prj"),
+    organizationId,
+    brandId: state.brands[0].id,
+    name: input.name,
+    objective: input.objective,
+    state: "draft",
+    aspectRatios: ["9:16"],
+    budgetCredits: input.budgetCredits,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  state.projects.unshift(project);
+  audit("project.created", "project", project.id, {
+    budgetCredits: project.budgetCredits,
+  });
+  return project;
+}
+
+export function createDemoAsset(
+  organizationId: string,
+  input: { name: string; type: Asset["type"]; projectId?: string },
+) {
+  requireDemoOrganization(organizationId);
+  if (
+    input.projectId &&
+    !state.projects.some(
+      (project) =>
+        project.id === input.projectId &&
+        project.organizationId === organizationId,
+    )
+  ) {
+    throw new Error("Project not found");
+  }
+  const assetId = id("asset");
+  const asset: Asset = {
+    id: assetId,
+    organizationId,
+    projectId: input.projectId,
+    type: input.type,
+    name: input.name,
+    url: `/api/demo-output/upload-${assetId}/0`,
+    width: input.type === "video" ? 1920 : 1400,
+    height: input.type === "video" ? 1080 : 1400,
+    durationMs: input.type === "video" ? 8_000 : undefined,
+    status: "active",
+    createdAt: new Date().toISOString(),
+  };
+  state.assets.unshift(asset);
+  audit("asset.uploaded", "asset", asset.id, { type: asset.type });
+  return asset;
+}
+
+export function createDemoTestCard(
+  organizationId: string,
+  input: {
+    projectId: string;
+    strategy: TestCard["strategy"];
+    title: string;
+    hook: string;
+  },
+) {
+  requireDemoOrganization(organizationId);
+  const project = state.projects.find(
+    (item) =>
+      item.id === input.projectId && item.organizationId === organizationId,
+  );
+  if (!project) throw new Error("Project not found");
+  const card: TestCard = {
+    id: id("card"),
+    projectId: input.projectId,
+    strategy: input.strategy,
+    title: input.title,
+    audience: "Primary campaign audience",
+    hook: input.hook,
+    promise: "Editable promise generated from the campaign brief.",
+    proof: "Add approved product proof before production.",
+    offer: "Campaign offer",
+    visualTreatment: "Editorial product-led treatment",
+    changedVariable: strategyLabelsForStore[input.strategy],
+    heldConstants: ["Product", "Offer", "CTA", "Placement"],
+    state: "draft",
+  };
+  state.testCards.push(card);
+  project.updatedAt = new Date().toISOString();
+  audit("test_card.created", "test_card", card.id, {
+    projectId: project.id,
+  });
+  return card;
+}
+
+const strategyLabelsForStore: Record<TestCard["strategy"], string> = {
+  problem_solution: "Pain-first hook",
+  demonstration: "Demonstration structure",
+  objection: "Objection handling",
+  social_proof: "Social proof",
+  comparison: "Comparison frame",
+  urgency: "Offer urgency",
+};
+
+export function topUpDemoCredits(organizationId: string, amount: number) {
+  requireDemoOrganization(organizationId);
+  const key = `demo:top-up:${randomUUID()}`;
+  addLedger({
+    organizationId,
+    type: "purchase",
+    amount,
+    idempotencyKey: key,
+  });
+  audit("billing.credits_purchased", "organization", organizationId, {
+    amount,
+  });
+  return { amount, availableCredits: calculateCreditBalance(state.ledger) };
+}
+
+export function updateDemoBrand(
+  organizationId: string,
+  brandId: string,
+  input: { description: string; tone: string[] },
+) {
+  requireDemoOrganization(organizationId);
+  const brand = state.brands.find(
+    (item) => item.id === brandId && item.organizationId === organizationId,
+  );
+  if (!brand) throw new Error("Brand not found");
+  brand.description = input.description;
+  brand.tone = input.tone;
+  brand.version += 1;
+  brand.updatedAt = new Date().toISOString();
+  audit("brand.version_created", "brand", brand.id, {
+    version: brand.version,
+  });
+  return brand;
+}
+
+export function createDemoReviewLink(
+  organizationId: string,
+  projectId: string,
+) {
+  requireDemoOrganization(organizationId);
+  const project = state.projects.find(
+    (item) =>
+      item.id === projectId && item.organizationId === organizationId,
+  );
+  if (!project) throw new Error("Project not found");
+  audit("review_link.created", "project", projectId);
+  return {
+    token: `review_${projectId}`,
+    url: `/review/review_${projectId}`,
+  };
+}
+
+export function getDemoReview(token: string) {
+  if (!token.startsWith("review_prj_")) return null;
+  const projectId = token.slice("review_".length);
+  const project = state.projects.find((item) => item.id === projectId);
+  if (!project) return null;
+  return {
+    organization: state.organization,
+    brand: state.brands.find((item) => item.id === project.brandId),
+    project,
+    testCards: state.testCards.filter(
+      (item) => item.projectId === project.id && item.state === "approved",
+    ),
+    storyboardFrames: state.storyboardFrames.filter((frame) =>
+      state.testCards.some(
+        (card) =>
+          card.id === frame.testCardId &&
+          card.projectId === project.id &&
+          card.state === "approved",
+      ),
+    ),
+  };
+}
+
+export async function produceApprovedDemoCards(
+  organizationId: string,
+  projectId: string,
+) {
+  requireDemoOrganization(organizationId);
+  const approved = state.testCards.filter(
+    (card) => card.projectId === projectId && card.state === "approved",
+  );
+  if (!approved.length) throw new Error("No approved Test Cards");
+  const generations = [];
+  for (const card of approved.slice(0, 3)) {
+    generations.push(
+      await createDemoGeneration(organizationId, {
+        projectId,
+        operation: "text_to_image",
+        prompt: `${card.visualTreatment}. ${card.hook}. ${card.promise}`,
+        modelId: "relay-image-pro",
+        aspectRatio: "9:16",
+        outputCount: 1,
+        idempotencyKey: `produce:${projectId}:${card.id}:v1`,
+      }),
+    );
+  }
+  audit("project.production_started", "project", projectId, {
+    generationCount: generations.length,
+  });
+  return generations;
+}
