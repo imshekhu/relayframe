@@ -151,6 +151,9 @@ test("runs project review, Test Card, production, and review-link actions", asyn
     .getByRole("link", { name: "Open review page" })
     .getAttribute("href");
   expect(reviewHref).toContain("/review/review_prj_");
+  const reviewResponse = await page.request.get(reviewHref!);
+  expect(reviewResponse.ok()).toBe(true);
+  expect(await reviewResponse.text()).toContain("Luma launch sprint");
   await page.getByRole("button", { name: "Close dialog" }).click();
 
   await page.getByRole("button", { name: "Produce approved" }).click();
