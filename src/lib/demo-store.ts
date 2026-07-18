@@ -306,7 +306,12 @@ export function demoSnapshot() {
     testCards: state.testCards,
     storyboardFrames: state.storyboardFrames,
     assets: state.assets,
-    generations: state.generations.map(({ providerJobId: _, ...generation }) => generation),
+    generations: state.generations.map((generation) => {
+      const sanitized: Partial<InternalGeneration> = { ...generation };
+      delete sanitized.providerJobId;
+      delete sanitized.idempotencyKey;
+      return sanitized as Generation;
+    }),
     ledger: state.ledger,
     audits: state.audits.slice(-20),
     availableCredits: calculateCreditBalance(state.ledger),

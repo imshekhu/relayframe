@@ -39,7 +39,6 @@ import {
 import {
   useCallback,
   useEffect,
-  useMemo,
   useState,
 } from "react";
 import type {
@@ -655,13 +654,10 @@ function Studio({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!eligibleModels.some((model) => model.id === modelId)) {
-      setModelId(eligibleModels[0]?.id ?? "");
-    }
-  }, [eligibleModels, modelId]);
-
-  const selectedModel = models.find((model) => model.id === modelId);
+  const effectiveModelId = eligibleModels.some((model) => model.id === modelId)
+    ? modelId
+    : (eligibleModels[0]?.id ?? "");
+  const selectedModel = models.find((model) => model.id === effectiveModelId);
   const estimate = selectedModel
     ? Math.ceil(
         (selectedModel.baseCredits +
@@ -683,7 +679,7 @@ function Studio({
         projectId: snapshot.projects[0]?.id,
         operation,
         prompt,
-        modelId,
+        modelId: effectiveModelId,
         aspectRatio,
         outputCount,
         idempotencyKey: `ui-${crypto.randomUUID()}`,
@@ -764,7 +760,7 @@ function Studio({
             <label>
               <span>Model</span>
               <select
-                value={modelId}
+                value={effectiveModelId}
                 onChange={(event) => setModelId(event.target.value)}
               >
                 {eligibleModels.map((model) => (
@@ -813,7 +809,7 @@ function Studio({
           <button
             className="generate-button"
             type="button"
-            disabled={submitting || prompt.trim().length < 8 || !modelId}
+            disabled={submitting || prompt.trim().length < 8 || !effectiveModelId}
             onClick={generate}
           >
             {submitting ? (
