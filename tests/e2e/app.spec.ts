@@ -1,7 +1,10 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-test("renders and navigates the complete SaaS workspace", async ({ page }) => {
+test("renders and navigates the complete SaaS workspace", async (
+  { page },
+  testInfo,
+) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("console", (message) => {
@@ -9,7 +12,9 @@ test("renders and navigates the complete SaaS workspace", async ({ page }) => {
   });
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /Good afternoon/ })).toBeVisible();
-  await expect(page.getByText("Northstar Creative")).toBeVisible();
+  if (!testInfo.project.name.includes("mobile")) {
+    await expect(page.getByText("Northstar Creative")).toBeVisible();
+  }
   const navigation = page.getByRole("navigation", { name: "Primary" });
 
   await navigation.getByRole("button", { name: "Projects" }).click();

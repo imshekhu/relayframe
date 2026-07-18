@@ -288,6 +288,7 @@ export function RelayFrameApp({
           <button
             className="search-trigger"
             type="button"
+          aria-label="Search projects, assets, and prompts"
             onClick={() => setSearchOpen(true)}
           >
             <Search size={16} />
