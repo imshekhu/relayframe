@@ -193,7 +193,7 @@ export function RelayFrameApp({
 
   useEffect(() => {
     if (!notice) return;
-    const timer = window.setTimeout(() => setNotice(null), 3_200);
+    const timer = window.setTimeout(() => setNotice(null), 6_000);
     return () => window.clearTimeout(timer);
   }, [notice]);
 

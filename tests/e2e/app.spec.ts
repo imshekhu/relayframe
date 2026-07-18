@@ -159,7 +159,9 @@ test("supports asset import, details, brand versioning, credits, and settings", 
   await page.goto("/");
   await page.getByRole("button", { name: "Import assets" }).click();
   await page.getByLabel("Asset name").fill("Launch packaging reference");
-  await page.getByRole("button", { name: "Import asset" }).click();
+  await page
+    .getByRole("button", { name: "Import asset", exact: true })
+    .click();
   await expect(page.getByRole("status")).toContainText("Asset imported");
 
   await page
