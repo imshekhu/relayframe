@@ -1,36 +1,121 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# RelayFrame
 
-## Getting Started
+An AI-native creative testing workspace for performance-marketing teams.
 
-First, run the development server:
+RelayFrame turns a campaign brief into structured creative hypotheses, generates
+low-cost storyboards before expensive production, preserves complete media
+lineage, and connects exported assets to campaign results.
 
-```bash
+This repository contains the first production-oriented vertical slice:
+
+- Organization-scoped SaaS workspace
+- Versioned brand system and claims guardrails
+- Campaign projects and Creative Test Cards
+- Storyboard approval workflow
+- Provider-neutral image/video generation API
+- Deterministic local demo provider
+- Durable generation state model
+- Immutable credit reservation and settlement ledger
+- Asset library with parent/generation lineage
+- Worker and provider adapter boundaries
+- PostgreSQL/Drizzle production schema
+- Redis/BullMQ worker foundation
+- Local Postgres, Redis, and MinIO stack
+- Responsive, accessible SaaS interface
+
+## Product surfaces
+
+- Overview and creative copilot
+- Multi-model generation studio
+- Project strategy and Test Card approval
+- Storyboard pre-production gate
+- Searchable asset library
+- Generation job center
+- Versioned brand system
+- Usage and immutable credit ledger
+
+## Local development
+
+The default application uses a safe in-memory demo organization and simulated
+provider, so the complete product flow works without external credentials.
+
+```sh
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Generate an image concept in the Studio. The demo provider advances through the
+same asynchronous job states as a real provider and produces deterministic local
+media after several seconds.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Production services
 
-## Learn More
+Start local PostgreSQL, Redis, and S3-compatible storage:
 
-To learn more about Next.js, take a look at the following resources:
+```sh
+docker compose up -d
+cp .env.example .env.local
+npm run db:generate
+npm run db:migrate
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The demo store intentionally remains the active repository in this MVP. The
+Drizzle schema and worker are the migration target for persistent deployments.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Verification
 
-## Deploy on Vercel
+```sh
+npm run lint
+npm run typecheck
+npm run test:unit
+npm run test:e2e
+npm run build
+npm audit
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Architecture
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```text
+Next.js web/control plane
+├── domain state machines and ledger invariants
+├── organization-scoped APIs
+├── projects, creative strategy, assets and billing
+└── provider-neutral generation contract
+
+BullMQ execution plane
+├── isolated provider adapters
+├── polling/retry/cancellation
+├── media processing boundary
+└── moderation/publishing boundary
+
+Data plane
+├── PostgreSQL transactional state and ledger
+├── Redis queue/rate control
+└── S3-compatible originals and outputs
+```
+
+## Security and economics
+
+- Provider credentials remain server-side.
+- API requests are organization-scoped.
+- Inputs are schema validated.
+- Generation requires a pessimistic credit reservation.
+- Settlement releases the reservation before consuming actual credits.
+- Ledger entries are idempotent and append-only.
+- Outputs are not considered published until post-processing and moderation.
+- Security headers and private-by-default media architecture are included.
+- No “unlimited generation” assumptions exist.
+
+## Current limitations
+
+- Authentication is represented by a fixed demo organization.
+- External providers, Stripe, upload quarantine, email, and persistent queues
+  require credentials and deployment configuration.
+- Demo media is generated as local SVG artwork.
+- Campaign result import and review links are represented in the domain and UI
+  but are not yet connected to external ad platforms.
+
+These boundaries are explicit so the prototype remains usable without implying
+that production integrations are already configured.
