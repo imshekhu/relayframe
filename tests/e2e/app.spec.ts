@@ -31,7 +31,12 @@ test("renders and navigates the complete SaaS workspace", async (
   await navigation.getByRole("button", { name: "Library" }).click();
   await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
 
-  await navigation.getByRole("button", { name: "Job center" }).click();
+  if (testInfo.project.name.includes("mobile")) {
+    await navigation.getByRole("button", { name: "More" }).click();
+    await page.getByRole("button", { name: "Job center" }).click();
+  } else {
+    await navigation.getByRole("button", { name: "Job center" }).click();
+  }
   await expect(page.getByRole("heading", { name: "Job center" })).toBeVisible();
   expect(errors).toEqual([]);
 });

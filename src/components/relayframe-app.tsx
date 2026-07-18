@@ -69,6 +69,7 @@ type View =
   | "billing";
 
 type Snapshot = {
+  snapshotAt: string;
   organization: Organization;
   brands: Brand[];
   projects: Project[];
@@ -115,8 +116,8 @@ const stateLabels: Record<Project["state"], string> = {
   archived: "Archived",
 };
 
-function relativeTime(value: string) {
-  const elapsed = Date.now() - new Date(value).getTime();
+function relativeTime(value: string, reference: string) {
+  const elapsed = new Date(reference).getTime() - new Date(value).getTime();
   if (elapsed < 60_000) return "Just now";
   if (elapsed < 3_600_000) return `${Math.floor(elapsed / 60_000)}m ago`;
   if (elapsed < 86_400_000) return `${Math.floor(elapsed / 3_600_000)}h ago`;
@@ -749,7 +750,7 @@ function Overview({
                   <i>AK</i>
                   <i>+2</i>
                 </span>
-                <small>Updated {relativeTime(project.updatedAt)}</small>
+                <small>Updated {relativeTime(project.updatedAt, snapshot.snapshotAt)}</small>
               </div>
             </div>
           </div>
@@ -1358,7 +1359,7 @@ function LibraryView({
               <span className="asset-type"><ImageIcon size={12} /> {asset.type}</span>
               <button type="button" aria-label={`More options for ${asset.name}`} onClick={() => onModal("asset", { asset })}><MoreHorizontal size={16} /></button>
               <b>{asset.name}</b>
-              <p>{asset.width} × {asset.height} · {relativeTime(asset.createdAt)}</p>
+              <p>{asset.width} × {asset.height} · {relativeTime(asset.createdAt, snapshot.snapshotAt)}</p>
               {asset.generationId && <small><Boxes size={11} /> Generated with lineage</small>}
             </div>
           </article>
@@ -1421,7 +1422,7 @@ function JobsView({
               <StatusDot state={generation.state} />
               <span className="job-progress"><i style={{ width: `${generation.progress}%` }} /><small>{generation.progress}%</small></span>
               <span>{generation.state === "completed" ? generation.consumedCredits : generation.reservedCredits} cr</span>
-              <span>{relativeTime(generation.createdAt)}</span>
+              <span>{relativeTime(generation.createdAt, snapshot.snapshotAt)}</span>
             </button>
           ))}
         </section>
@@ -1563,7 +1564,7 @@ function BillingView({
                 {["grant", "purchase", "release", "refund"].includes(entry.type) ? <Plus size={14} /> : <Zap size={14} />}
               </span>
               <span><b>{entry.type}</b><small>{entry.generationId ?? "Monthly allowance"}</small></span>
-              <span>{relativeTime(entry.createdAt)}</span>
+              <span>{relativeTime(entry.createdAt, snapshot.snapshotAt)}</span>
               <strong className={["grant", "purchase", "release", "refund"].includes(entry.type) ? "positive" : ""}>
                 {["grant", "purchase", "release", "refund"].includes(entry.type) ? "+" : "−"}{entry.amount}
               </strong>

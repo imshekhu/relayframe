@@ -305,6 +305,7 @@ export function resetDemoState() {
 
 export function demoSnapshot() {
   return {
+    snapshotAt: new Date().toISOString(),
     organization: state.organization,
     brands: state.brands,
     projects: state.projects,
