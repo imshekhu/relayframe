@@ -439,7 +439,7 @@ function ModalContent({
     const job = payload.job;
     return (
       <>
-        <ModalHeading icon={ActivityIcon} eyebrow="Generation execution" title={job.operation.replaceAll("_", " ")} description={job.prompt} />
+        <ModalHeading icon={Gauge} eyebrow="Generation execution" title={job.operation.replaceAll("_", " ")} description={job.prompt} />
         <div className="job-modal-progress"><span><i style={{ width: `${job.progress}%` }} /></span><b>{job.progress}%</b></div>
         <dl className="detail-list"><div><dt>State</dt><dd>{job.state.replaceAll("_", " ")}</dd></div><div><dt>Model</dt><dd>{job.modelId}</dd></div><div><dt>Reserved</dt><dd>{job.reservedCredits} credits</dd></div><div><dt>Settled</dt><dd>{job.consumedCredits || "Pending"}</dd></div></dl>
       </>
@@ -516,10 +516,6 @@ function ToggleSetting({
 
 function ZapIcon() {
   return <CircleDollarSign size={18} />;
-}
-
-function ActivityIcon() {
-  return <Gauge size={18} />;
 }
 
 function ApertureIcon() {
