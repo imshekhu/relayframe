@@ -298,6 +298,14 @@ export function RelayFrameApp({
               <span>{item.label}</span>
             </button>
           ))}
+          <button
+            className="mobile-more"
+            type="button"
+            onClick={() => setSearchOpen(true)}
+          >
+            <MoreHorizontal size={17} />
+            <span>More</span>
+          </button>
         </nav>
 
         <div className="sidebar-footer">

@@ -260,6 +260,10 @@ select:focus-visible {
   box-shadow: 0 0 8px var(--lime);
 }
 
+.sidebar nav .mobile-more {
+  display: none;
+}
+
 .sidebar-footer {
   display: flex;
   flex-direction: column;
@@ -2081,6 +2085,8 @@ kbd {
   .sidebar nav > p,
   .sidebar nav button:nth-of-type(n+6),
   .sidebar-footer { display: none; }
+  .sidebar nav button:nth-of-type(5) { display: none; }
+  .sidebar nav button.mobile-more { display: flex !important; }
   .sidebar nav { display: grid; width: 100%; grid-template-columns: repeat(5,1fr); padding: 5px 7px; }
   .sidebar nav button { display: flex; min-height: 50px; flex-direction: column; justify-content: center; gap: 3px; padding: 0; font-size: 7px; }
   .sidebar nav span { display: block !important; }

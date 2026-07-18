@@ -248,6 +248,19 @@ test("has no serious automated accessibility violations", async ({ page }) => {
   expect(severe).toEqual([]);
 });
 
+test("keeps interactive dialogs accessible", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Import assets" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Import source media" }),
+  ).toBeVisible();
+  const results = await new AxeBuilder({ page }).analyze();
+  const severe = results.violations.filter((violation) =>
+    ["serious", "critical"].includes(violation.impact ?? ""),
+  );
+  expect(severe).toEqual([]);
+});
+
 test("fits and navigates at a compact touch viewport", async ({
   page,
 }, testInfo) => {
@@ -261,6 +274,14 @@ test("fits and navigates at a compact touch viewport", async ({
     .getByRole("button", { name: "Generate" })
     .click();
   await expect(page.getByRole("heading", { name: "Generate" })).toBeVisible();
+  await page
+    .getByRole("navigation", { name: "Primary" })
+    .getByRole("button", { name: "More" })
+    .click();
+  await page.getByRole("button", { name: "Usage & billing" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Usage & billing" }),
+  ).toBeVisible();
   const overflow = await page.evaluate(
     () =>
       document.documentElement.scrollWidth >
