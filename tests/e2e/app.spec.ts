@@ -46,8 +46,16 @@ test("updates Test Card approval through the tenant-scoped API", async ({
 
 test("runs a reserved generation through completion and asset publication", async ({
   page,
+  request,
 }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Run one paid job");
+  const initialResponse = await request.get("/api/demo", {
+    headers: { "x-relayframe-organization": "org_demo" },
+  });
+  const initial = (await initialResponse.json()) as {
+    generations: unknown[];
+    assets: unknown[];
+  };
   await page.goto("/");
   const navigation = page.getByRole("navigation", { name: "Primary" });
   await navigation.getByRole("button", { name: "Generate" }).click();
@@ -61,14 +69,18 @@ test("runs a reserved generation through completion and asset publication", asyn
   );
 
   await navigation.getByRole("button", { name: "Job center" }).click();
-  await expect(page.locator(".job-row")).toHaveCount(1);
+  await expect(page.locator(".job-row")).toHaveCount(
+    initial.generations.length + 1,
+  );
   await expect(page.locator(".status-chip").first()).toHaveText("completed", {
     timeout: 15_000,
   });
   await expect(page.locator(".job-row").first()).toContainText("100%");
 
   await navigation.getByRole("button", { name: "Library" }).click();
-  await expect(page.locator(".asset-grid > article")).toHaveCount(4);
+  await expect(page.locator(".asset-grid > article")).toHaveCount(
+    initial.assets.length + 2,
+  );
 });
 
 test("rejects malformed and cross-tenant API requests", async ({ request }) => {
