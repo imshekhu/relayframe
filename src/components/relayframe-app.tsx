@@ -959,6 +959,7 @@ function Studio({
               <small>{prompt.length} / 4,000</small>
             </span>
             <textarea
+              suppressHydrationWarning
               value={prompt}
               maxLength={4000}
               onChange={(event) => setPrompt(event.target.value)}

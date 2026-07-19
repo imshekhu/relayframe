@@ -170,7 +170,7 @@ test("supports asset import, details, brand versioning, credits, and settings", 
     .getByRole("navigation", { name: "Primary" })
     .getByRole("button", { name: "More tools" })
     .click();
-  await page.getByRole("button", { name: "Overview" }).click();
+  await page.getByRole("button", { name: "Overview", exact: true }).click();
   await page.getByRole("button", { name: "Import assets" }).click();
   await page.getByLabel("Asset name").fill("Launch packaging reference");
   await page
@@ -227,7 +227,7 @@ test("creates a project through the visible overview action", async ({
     .getByRole("navigation", { name: "Primary" })
     .getByRole("button", { name: "More tools" })
     .click();
-  await page.getByRole("button", { name: "Overview" }).click();
+  await page.getByRole("button", { name: "Overview", exact: true }).click();
   await page.getByRole("button", { name: "New project" }).click();
   await page.getByLabel("Project name").fill("Autumn product sprint");
   await page
@@ -273,7 +273,7 @@ test("keeps interactive dialogs accessible", async ({ page }) => {
     .getByRole("navigation", { name: "Primary" })
     .getByRole("button", { name: "More tools" })
     .click();
-  await page.getByRole("button", { name: "Overview" }).click();
+  await page.getByRole("button", { name: "Overview", exact: true }).click();
   await page.getByRole("button", { name: "Import assets" }).click();
   await expect(
     page.getByRole("heading", { name: "Import source media" }),

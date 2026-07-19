@@ -2516,6 +2516,19 @@ body {
   color: #b994ff;
 }
 
+.model-health span {
+  color: #5d596b;
+}
+
+.brand-context-card small,
+.model-detail-card dt {
+  color: #625d70;
+}
+
+.model-detail-card > p:not(.eyebrow) {
+  color: #5e586b;
+}
+
 .test-card::before {
   height: 4px;
   background: linear-gradient(90deg, #8d5bed, #58d1dd) !important;
