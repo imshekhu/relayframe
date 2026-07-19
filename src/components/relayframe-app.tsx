@@ -934,45 +934,47 @@ function Studio({
             })}
           </div>
 
-          <label
-            className="prompt-field"
+          <div
             id="generation-input-panel"
             role="tabpanel"
             aria-labelledby={`operation-${operation}`}
           >
-            <span>
-              Describe your idea
-              <small>{prompt.length} / 4,000</small>
-            </span>
-            <textarea
-              suppressHydrationWarning
-              value={prompt}
-              maxLength={4000}
-              onChange={(event) => onPromptChange(event.target.value)}
-              rows={7}
-            />
-            <div className="prompt-tools">
-              <button
-                type="button"
-                onClick={() => {
-                  onPromptChange((value) =>
-                    `${value}. Apply Luma Labs brand palette, evidence-aware tone, and approved product claims only.`,
-                  );
-                  onNotice("Brand rules applied to prompt");
-                }}
-              ><BriefcaseBusiness size={14} /> Apply brand</button>
-              <button type="button" onClick={() => onModal("camera")}><Aperture size={14} /> Camera recipe</button>
-              <button
-                type="button"
-                onClick={() => {
-                  onPromptChange((value) =>
-                    `${value}. Add precise composition, realistic material detail, controlled highlights, and production-ready negative space.`,
-                  );
-                  onNotice("Prompt enhanced");
-                }}
-              ><Sparkles size={14} /> Enhance</button>
+            <div className="prompt-field">
+              <label htmlFor="creative-direction">
+                Describe your idea
+                <small>{prompt.length} / 4,000</small>
+              </label>
+              <textarea
+                id="creative-direction"
+                suppressHydrationWarning
+                value={prompt}
+                maxLength={4000}
+                onChange={(event) => onPromptChange(event.target.value)}
+                rows={7}
+              />
+              <div className="prompt-tools">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onPromptChange((value) =>
+                      `${value}. Apply Luma Labs brand palette, evidence-aware tone, and approved product claims only.`,
+                    );
+                    onNotice("Brand rules applied to prompt");
+                  }}
+                ><BriefcaseBusiness size={14} /> Apply brand</button>
+                <button type="button" onClick={() => onModal("camera")}><Aperture size={14} /> Camera recipe</button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onPromptChange((value) =>
+                      `${value}. Add precise composition, realistic material detail, controlled highlights, and production-ready negative space.`,
+                    );
+                    onNotice("Prompt enhanced");
+                  }}
+                ><Sparkles size={14} /> Enhance</button>
+              </div>
             </div>
-          </label>
+          </div>
 
           {operation.includes("image_to") && (
             <button

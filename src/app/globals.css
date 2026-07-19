@@ -1067,7 +1067,7 @@ kbd {
   margin-top: 20px;
 }
 
-.prompt-field > span,
+.prompt-field > label,
 .studio-settings label > span {
   display: flex;
   align-items: center;
@@ -2732,7 +2732,7 @@ body {
   font-size: 11px;
 }
 
-.prompt-field > span,
+.prompt-field > label,
 .studio-settings label > span,
 .test-card blockquote,
 .project-summary > p {
