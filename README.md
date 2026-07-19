@@ -13,6 +13,7 @@ This repository contains the first production-oriented vertical slice:
 - Campaign projects and Creative Test Cards
 - Storyboard approval workflow
 - Provider-neutral image/video generation API
+- Auto model routing with exact capability validation and immutable routing result
 - Deterministic local demo provider
 - Durable generation state model
 - Immutable credit reservation and settlement ledger
@@ -22,6 +23,8 @@ This repository contains the first production-oriented vertical slice:
 - Redis/BullMQ worker foundation
 - Local Postgres, Redis, and MinIO stack
 - Responsive, accessible SaaS interface
+- Reactive live-output dock with abortable, visibility-aware job synchronization
+- URL-backed navigation with browser history and deep-link support
 
 ## Product surfaces
 
@@ -113,6 +116,11 @@ Data plane
 ├── Redis queue/rate control
 └── S3-compatible originals and outputs
 ```
+
+Routes adapt HTTP only; `WorkspaceService` is the active application boundary.
+Repository and unit-of-work contracts define the PostgreSQL migration seam.
+Generation reads are side-effect free: demo progression uses an explicit sync
+command, while production execution belongs exclusively to workers/outbox jobs.
 
 ## Security and economics
 
