@@ -38,11 +38,12 @@ export function logDomainEvent(
   event: string,
   fields: Record<string, unknown>,
 ) {
+  const sanitized = sanitize(fields) as Record<string, unknown>;
   const record = JSON.stringify({
     timestamp: new Date().toISOString(),
     level,
     event,
-    ...sanitize(fields),
+    ...sanitized,
   });
   if (level === "error") console.error(record);
   else if (level === "warn") console.warn(record);
