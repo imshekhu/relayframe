@@ -7,7 +7,9 @@ import {
 } from "@/lib/request-context";
 import {
   SESSION_COOKIE,
+  issueReviewToken,
   issueSessionToken,
+  verifyReviewToken,
   verifySessionToken,
 } from "@/security/session";
 
@@ -47,6 +49,20 @@ describe("security boundary", () => {
     const expired = sessionToken(1);
     expect(
       verifySessionToken(expired, Math.floor(Date.now() / 1000) + 2),
+    ).toBeNull();
+  });
+
+  it("issues unguessable, scoped, expiring review capabilities", () => {
+    const first = issueReviewToken("org_security_test", "prj_review");
+    const second = issueReviewToken("org_security_test", "prj_review");
+    expect(first).not.toBe(second);
+    expect(verifyReviewToken(first)).toMatchObject({
+      organizationId: "org_security_test",
+      projectId: "prj_review",
+    });
+    expect(verifyReviewToken(`${first.slice(0, -2)}xx`)).toBeNull();
+    expect(
+      verifyReviewToken(first, Math.floor(Date.now() / 1_000) + 8 * 86_400),
     ).toBeNull();
   });
 

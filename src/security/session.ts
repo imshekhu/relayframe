@@ -157,3 +157,62 @@ export function sessionFromRequest(request: Request) {
 export function hashCapabilityToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
+
+interface ReviewTokenClaims {
+  type: "review";
+  organizationId: string;
+  projectId: string;
+  expiresAt: number;
+  nonce: string;
+}
+
+export function issueReviewToken(
+  organizationId: string,
+  projectId: string,
+  lifetimeSeconds = 7 * 86_400,
+) {
+  const claims: ReviewTokenClaims = {
+    type: "review",
+    organizationId,
+    projectId,
+    expiresAt: Math.floor(Date.now() / 1_000) + lifetimeSeconds,
+    nonce: randomBytes(18).toString("base64url"),
+  };
+  const payload = encode(JSON.stringify(claims));
+  return `${payload}.${encode(sign(`review:${payload}`))}`;
+}
+
+export function verifyReviewToken(
+  token: string,
+  nowSeconds = Math.floor(Date.now() / 1_000),
+): ReviewTokenClaims | null {
+  const [payload, signature] = token.split(".");
+  if (!payload || !signature) return null;
+  const received = Buffer.from(signature, "base64url");
+  const expected = sign(`review:${payload}`);
+  if (
+    received.length !== expected.length ||
+    !timingSafeEqual(received, expected)
+  ) {
+    return null;
+  }
+  try {
+    const claims = JSON.parse(
+      Buffer.from(payload, "base64url").toString("utf8"),
+    ) as Partial<ReviewTokenClaims>;
+    if (
+      claims.type !== "review" ||
+      typeof claims.organizationId !== "string" ||
+      typeof claims.projectId !== "string" ||
+      typeof claims.expiresAt !== "number" ||
+      typeof claims.nonce !== "string" ||
+      claims.expiresAt <= nowSeconds ||
+      claims.expiresAt > nowSeconds + 8 * 86_400
+    ) {
+      return null;
+    }
+    return claims as ReviewTokenClaims;
+  } catch {
+    return null;
+  }
+}

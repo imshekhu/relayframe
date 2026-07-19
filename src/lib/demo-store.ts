@@ -1,6 +1,6 @@
 import "server-only";
 
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import {
   generationProgress,
   isTerminalGenerationState,
@@ -25,7 +25,12 @@ import type {
 } from "@/domain/types";
 import type { GenerationRequest } from "@/domain/schemas";
 import { resolveModel } from "@/providers/registry";
-import { hashCapabilityToken } from "@/security/session";
+import {
+  hashCapabilityToken,
+  isDemoMode,
+  issueReviewToken,
+  verifyReviewToken,
+} from "@/security/session";
 
 const ORG_ID = "org_demo";
 const USER_ID = "usr_demo";
@@ -666,7 +671,7 @@ export function createDemoReviewLink(
       item.id === projectId && item.organizationId === organizationId,
   );
   if (!project) throw new Error("Project not found");
-  const token = randomBytes(32).toString("base64url");
+  const token = issueReviewToken(organizationId, projectId);
   state.reviewLinks.push({
     tokenHash: hashCapabilityToken(token),
     projectId,
@@ -685,6 +690,8 @@ export function createDemoReviewLink(
 
 export function getDemoReview(token: string) {
   if (token.length < 32) return null;
+  const claims = verifyReviewToken(token);
+  if (!claims) return null;
   const tokenHash = hashCapabilityToken(token);
   const link = state.reviewLinks.find(
     (item) =>
@@ -692,11 +699,12 @@ export function getDemoReview(token: string) {
       !item.revokedAt &&
       new Date(item.expiresAt).getTime() > Date.now(),
   );
-  if (!link) return null;
+  if (!link && !isDemoMode()) return null;
   const project = state.projects.find(
     (item) =>
-      item.id === link.projectId &&
-      item.organizationId === link.organizationId,
+      item.id === (link?.projectId ?? claims.projectId) &&
+      item.organizationId ===
+        (link?.organizationId ?? claims.organizationId),
   );
   if (!project) return null;
   audit("review_link.accessed", "project", project.id, {
