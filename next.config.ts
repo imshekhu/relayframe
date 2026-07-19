@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const isDevelopment = process.env.NODE_ENV !== "production";
+const isSecureDeployment =
+  process.env.NEXT_PUBLIC_APP_URL?.startsWith("https://") ?? false;
 const contentSecurityPolicy = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""}`,
@@ -14,7 +16,7 @@ const contentSecurityPolicy = [
   "base-uri 'self'",
   "form-action 'self'",
   "frame-ancestors 'none'",
-  isDevelopment ? "" : "upgrade-insecure-requests",
+  !isDevelopment && isSecureDeployment ? "upgrade-insecure-requests" : "",
 ]
   .filter(Boolean)
   .join("; ");
