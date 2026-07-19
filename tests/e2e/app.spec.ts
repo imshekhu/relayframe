@@ -112,7 +112,7 @@ test("supports global search and functional studio prompt tools", async ({
     .getByRole("navigation", { name: "Primary" })
     .getByRole("button", { name: "Create" })
     .click();
-  const prompt = page.getByLabel("Creative direction");
+  const prompt = page.getByLabel("Describe your idea");
   await page.getByRole("button", { name: "Apply brand" }).click();
   await expect(prompt).toHaveValue(/Luma Labs brand palette/);
   await page.getByRole("button", { name: "Enhance" }).click();
@@ -193,8 +193,9 @@ test("supports asset import, details, brand versioning, credits, and settings", 
 
   await page
     .getByRole("navigation", { name: "Primary" })
-    .getByRole("button", { name: "Brand system" })
+    .getByRole("button", { name: "More tools" })
     .click();
+  await page.getByRole("button", { name: "Brand system" }).click();
   await page.getByRole("button", { name: "Edit brand pack" }).click();
   await page
     .getByLabel("Brand description")
@@ -206,8 +207,9 @@ test("supports asset import, details, brand versioning, credits, and settings", 
 
   await page
     .getByRole("navigation", { name: "Primary" })
-    .getByRole("button", { name: "Usage & billing" })
+    .getByRole("button", { name: "More tools" })
     .click();
+  await page.getByRole("button", { name: "Usage & billing" }).click();
   await page.getByRole("button", { name: "Buy credits" }).click();
   await page.getByRole("button", { name: /1,000 credits/ }).click();
   await expect(page.locator(".balance-card strong")).toHaveText("2,250");
@@ -293,10 +295,6 @@ test("fits and navigates at a compact touch viewport", async ({
   await expect(
     page.getByRole("navigation", { name: "Primary" }),
   ).toBeVisible();
-  await page
-    .getByRole("navigation", { name: "Primary" })
-    .getByRole("button", { name: "Create" })
-    .click();
   await expect(
     page.getByRole("heading", { name: "What will you create?" }),
   ).toBeVisible();

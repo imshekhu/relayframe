@@ -9,13 +9,13 @@ export default defineConfig({
   workers: 1,
   reporter: "list",
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: "http://localhost:3100",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
   webServer: {
-    command: "npm run dev",
-    url: "http://localhost:3000/api/health",
+    command: "RELAYFRAME_E2E=1 PORT=3100 npm run start",
+    url: "http://localhost:3100/api/health",
     reuseExistingServer: true,
     timeout: 120_000,
   },

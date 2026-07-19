@@ -6,7 +6,10 @@ import {
 } from "@/lib/request-context";
 
 export async function POST(request: Request) {
-  if (process.env.NODE_ENV === "production") {
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.RELAYFRAME_E2E !== "1"
+  ) {
     return apiError("Not found", 404);
   }
   const organizationId = organizationFromRequest(request);
