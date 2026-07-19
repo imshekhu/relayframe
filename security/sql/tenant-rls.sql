@@ -11,8 +11,11 @@ ALTER TABLE brands ENABLE ROW LEVEL SECURITY;
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE assets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE generations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE generation_attempts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ledger_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE outbox_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE review_links ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY organizations_tenant_isolation ON organizations
   USING (
@@ -72,6 +75,16 @@ CREATE POLICY generations_tenant_isolation ON generations
     NULLIF(current_setting('app.current_organization_id', true), '')::uuid
   );
 
+CREATE POLICY generation_attempts_tenant_isolation ON generation_attempts
+  USING (
+    organization_id =
+    NULLIF(current_setting('app.current_organization_id', true), '')::uuid
+  )
+  WITH CHECK (
+    organization_id =
+    NULLIF(current_setting('app.current_organization_id', true), '')::uuid
+  );
+
 CREATE POLICY ledger_tenant_isolation ON ledger_entries
   USING (
     organization_id =
@@ -85,6 +98,26 @@ CREATE POLICY ledger_tenant_isolation ON ledger_entries
 CREATE POLICY audit_tenant_read ON audit_events
   FOR SELECT
   USING (
+    organization_id =
+    NULLIF(current_setting('app.current_organization_id', true), '')::uuid
+  );
+
+CREATE POLICY outbox_tenant_isolation ON outbox_events
+  USING (
+    organization_id =
+    NULLIF(current_setting('app.current_organization_id', true), '')::uuid
+  )
+  WITH CHECK (
+    organization_id =
+    NULLIF(current_setting('app.current_organization_id', true), '')::uuid
+  );
+
+CREATE POLICY review_links_tenant_isolation ON review_links
+  USING (
+    organization_id =
+    NULLIF(current_setting('app.current_organization_id', true), '')::uuid
+  )
+  WITH CHECK (
     organization_id =
     NULLIF(current_setting('app.current_organization_id', true), '')::uuid
   );
@@ -116,6 +149,16 @@ ALTER TABLE ledger_entries
   ADD CONSTRAINT ledger_generation_same_tenant
   FOREIGN KEY (organization_id, generation_id)
   REFERENCES generations (organization_id, id);
+
+ALTER TABLE generation_attempts
+  ADD CONSTRAINT attempts_generation_same_tenant
+  FOREIGN KEY (organization_id, generation_id)
+  REFERENCES generations (organization_id, id);
+
+ALTER TABLE review_links
+  ADD CONSTRAINT review_links_project_same_tenant
+  FOREIGN KEY (organization_id, project_id)
+  REFERENCES projects (organization_id, id);
 
 ALTER TABLE ledger_entries
   ADD CONSTRAINT ledger_amount_positive CHECK (amount > 0);

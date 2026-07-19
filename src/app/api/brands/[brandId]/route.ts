@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { brandUpdateSchema } from "@/domain/schemas";
-import { updateDemoBrand } from "@/lib/demo-store";
 import {
   apiError,
   enforceMutationSecurity,
@@ -8,6 +7,7 @@ import {
   RequestBodyError,
   requestContextFromRequest,
 } from "@/lib/request-context";
+import { workspaceService } from "@/services/workspace-service";
 
 export async function PATCH(
   request: Request,
@@ -34,7 +34,7 @@ export async function PATCH(
   const { brandId } = await context.params;
   try {
     return NextResponse.json(
-      updateDemoBrand(organizationId, brandId, parsed.data),
+      workspaceService.updateBrand(organizationId, brandId, parsed.data),
     );
   } catch (error) {
     return apiError(error instanceof Error ? error.message : "Update failed");

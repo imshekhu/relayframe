@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { testCardCreateSchema } from "@/domain/schemas";
-import { createDemoTestCard } from "@/lib/demo-store";
 import {
   apiError,
   enforceMutationSecurity,
@@ -8,6 +7,7 @@ import {
   RequestBodyError,
   requestContextFromRequest,
 } from "@/lib/request-context";
+import { workspaceService } from "@/services/workspace-service";
 
 export async function POST(request: Request) {
   const guard = enforceMutationSecurity(request, {
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   if (!parsed.success) return apiError("Invalid Test Card", 422);
   try {
     return NextResponse.json(
-      createDemoTestCard(organizationId, parsed.data),
+      workspaceService.createTestCard(organizationId, parsed.data),
       { status: 201 },
     );
   } catch (error) {

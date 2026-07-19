@@ -75,8 +75,10 @@ export class DemoGenerationProvider implements GenerationProvider {
   }
 
   validate(request: CanonicalGenerationRequest) {
-    const capability = capabilities.find((item) =>
-      item.operations.includes(request.operation),
+    const capability = capabilities.find(
+      (item) =>
+        item.id === request.modelId &&
+        item.operations.includes(request.operation),
     );
     if (!capability) throw new Error("Unsupported demo operation");
     if (!capability.aspectRatios.includes(request.aspectRatio)) {
@@ -88,9 +90,16 @@ export class DemoGenerationProvider implements GenerationProvider {
   }
 
   quote(request: CanonicalGenerationRequest) {
-    return request.operation.includes("video")
-      ? 18 + request.outputCount * 9
-      : 5 + request.outputCount * 3;
+    const capability = capabilities.find(
+      (item) => item.id === request.modelId,
+    );
+    if (!capability) throw new Error("Unknown demo model");
+    const operationMultiplier = request.operation.includes("video") ? 2.4 : 1;
+    return Math.ceil(
+      (capability.baseCredits +
+        capability.creditPerOutput * request.outputCount) *
+        operationMultiplier,
+    );
   }
 
   async submit(

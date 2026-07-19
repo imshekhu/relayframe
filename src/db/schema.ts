@@ -1,6 +1,7 @@
 import {
   bigint,
   boolean,
+  index,
   integer,
   jsonb,
   pgEnum,
@@ -151,6 +152,9 @@ export const generationAttempts = pgTable(
   "generation_attempts",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
     generationId: uuid("generation_id")
       .notNull()
       .references(() => generations.id, { onDelete: "cascade" }),
@@ -171,6 +175,10 @@ export const generationAttempts = pgTable(
     uniqueIndex("generation_attempt_ordinal_idx").on(
       table.generationId,
       table.attemptNumber,
+    ),
+    index("generation_attempts_org_created_idx").on(
+      table.organizationId,
+      table.createdAt,
     ),
   ],
 );
@@ -222,3 +230,60 @@ export const modelCapabilities = pgTable("model_capabilities", {
   enabled: boolean("enabled").notNull().default(true),
   verifiedAt: timestamp("verified_at", { withTimezone: true }).notNull(),
 });
+
+export const outboxEvents = pgTable(
+  "outbox_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    aggregateType: text("aggregate_type").notNull(),
+    aggregateId: uuid("aggregate_id").notNull(),
+    eventType: text("event_type").notNull(),
+    payload: jsonb("payload").notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    availableAt: timestamp("available_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    processedAt: timestamp("processed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("outbox_available_idx").on(table.processedAt, table.availableAt),
+    index("outbox_org_created_idx").on(
+      table.organizationId,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const reviewLinks = pgTable(
+  "review_links",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    scope: text("scope").notNull().default("review:read"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("review_links_token_hash_idx").on(table.tokenHash),
+    index("review_links_project_idx").on(
+      table.organizationId,
+      table.projectId,
+    ),
+  ],
+);

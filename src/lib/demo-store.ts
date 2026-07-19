@@ -1,7 +1,8 @@
 import "server-only";
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
+  assertGenerationTransition,
   generationProgress,
   isTerminalGenerationState,
 } from "@/domain/generation-machine";
@@ -24,7 +25,7 @@ import type {
   TestCard,
 } from "@/domain/types";
 import type { GenerationRequest } from "@/domain/schemas";
-import { resolveModel } from "@/providers/registry";
+import { resolveModel, routeModel } from "@/providers/registry";
 import {
   hashCapabilityToken,
   isDemoMode,
@@ -39,6 +40,7 @@ const now = new Date().toISOString();
 type InternalGeneration = Generation & {
   providerJobId?: string;
   idempotencyKey: string;
+  requestHash: string;
 };
 
 type DemoState = {
@@ -287,6 +289,15 @@ function addLedger(entry: Omit<LedgerEntry, "id" | "createdAt">) {
   state.ledger.push({ ...entry, id: id("led"), createdAt: new Date().toISOString() });
 }
 
+function transitionGeneration(
+  generation: InternalGeneration,
+  nextState: Generation["state"],
+) {
+  assertGenerationTransition(generation.state, nextState);
+  generation.state = nextState;
+  generation.progress = generationProgress(nextState);
+}
+
 function audit(
   action: string,
   entityType: string,
@@ -332,6 +343,7 @@ export function demoSnapshot() {
       const sanitized: Partial<InternalGeneration> = { ...generation };
       delete sanitized.providerJobId;
       delete sanitized.idempotencyKey;
+      delete sanitized.requestHash;
       return sanitized as Generation;
     }),
     ledger: state.ledger,
@@ -345,12 +357,33 @@ export async function createDemoGeneration(
   request: GenerationRequest,
 ) {
   requireDemoOrganization(organizationId);
+  const requestHash = createHash("sha256")
+    .update(
+      JSON.stringify({
+        projectId: request.projectId ?? null,
+        operation: request.operation,
+        prompt: request.prompt,
+        modelId: request.modelId,
+        aspectRatio: request.aspectRatio,
+        outputCount: request.outputCount,
+      }),
+    )
+    .digest("hex");
   const existing = state.generations.find(
     (generation) => generation.idempotencyKey === request.idempotencyKey,
   );
-  if (existing) return existing;
+  if (existing) {
+    if (existing.requestHash !== requestHash) {
+      throw new Error("Idempotency key reused with a different request");
+    }
+    return existing;
+  }
 
-  const resolved = resolveModel(request.modelId);
+  const routedModel =
+    request.modelId === "auto"
+      ? routeModel(request.operation, "economy")
+      : undefined;
+  const resolved = resolveModel(routedModel?.id ?? request.modelId);
   if (!resolved || !resolved.capability.operations.includes(request.operation)) {
     throw new Error("Requested model does not support this operation");
   }
@@ -370,6 +403,7 @@ export async function createDemoGeneration(
   const generationId = id("gen");
   const canonical = {
     generationId,
+    modelId: resolved.capability.id,
     operation: request.operation,
     prompt: request.prompt,
     aspectRatio: request.aspectRatio,
@@ -404,19 +438,23 @@ export async function createDemoGeneration(
     projectId: request.projectId,
     operation: request.operation,
     prompt: request.prompt,
-    modelId: request.modelId,
+    modelId: resolved.capability.id,
     aspectRatio: request.aspectRatio,
     outputCount: request.outputCount,
-    state: "queued",
+    state: "created",
     estimatedCredits: quotedCredits,
     reservedCredits: quotedCredits,
     consumedCredits: 0,
-    progress: generationProgress("queued"),
+    progress: generationProgress("created"),
     outputAssetIds: [],
     createdAt: new Date().toISOString(),
     idempotencyKey: request.idempotencyKey,
+    requestHash,
   };
   state.generations.unshift(generation);
+  transitionGeneration(generation, "validating");
+  transitionGeneration(generation, "safety_precheck");
+  transitionGeneration(generation, "cost_reserved");
   addLedger({
     organizationId,
     generationId,
@@ -424,15 +462,32 @@ export async function createDemoGeneration(
     amount: quotedCredits,
     idempotencyKey: reservationIdempotencyKey(generationId),
   });
-  const providerJob = await resolved.provider.submit(
-    canonical,
-    `relay:${generationId}:attempt:1`,
-  );
-  generation.providerJobId = providerJob.providerJobId;
-  generation.state = "provider_running";
-  generation.progress = generationProgress("provider_running");
+  transitionGeneration(generation, "queued");
+  try {
+    const providerJob = await resolved.provider.submit(
+      canonical,
+      `relay:${generationId}:provider-submit:v1`,
+    );
+    generation.providerJobId = providerJob.providerJobId;
+    transitionGeneration(generation, "provider_running");
+  } catch (error) {
+    transitionGeneration(generation, "failed");
+    generation.error =
+      error instanceof Error ? error.message : "Provider submission failed";
+    addLedger({
+      organizationId,
+      generationId,
+      type: "release",
+      amount: generation.reservedCredits,
+      idempotencyKey: releaseIdempotencyKey(generationId),
+    });
+    audit("generation.failed", "generation", generationId, {
+      phase: "provider_submission",
+    });
+    throw error;
+  }
   audit("generation.created", "generation", generationId, {
-    modelId: request.modelId,
+    modelId: resolved.capability.id,
     reservedCredits: quotedCredits,
   });
   return generation;
@@ -452,12 +507,49 @@ export async function refreshDemoGenerations(organizationId: string) {
     const providerJob = await resolved.provider.status(generation.providerJobId);
     generation.progress = providerJob.progress;
     if (providerJob.state === "running") {
-      generation.state = "provider_running";
+      continue;
+    }
+    if (providerJob.state === "failed" || providerJob.state === "cancelled") {
+      transitionGeneration(
+        generation,
+        providerJob.state === "cancelled" ? "cancelled" : "failed",
+      );
+      generation.error =
+        providerJob.errorCode ??
+        (providerJob.state === "cancelled"
+          ? "Generation cancelled"
+          : "Provider generation failed");
+      addLedger({
+        organizationId,
+        generationId: generation.id,
+        type: "release",
+        amount: generation.reservedCredits,
+        idempotencyKey: releaseIdempotencyKey(generation.id),
+      });
+      audit("generation.failed", "generation", generation.id, {
+        providerState: providerJob.state,
+      });
       continue;
     }
     if (providerJob.state === "succeeded") {
-      generation.state = "completed";
-      generation.progress = 100;
+      if (
+        (providerJob.actualCostCredits ?? generation.estimatedCredits) >
+        generation.reservedCredits
+      ) {
+        transitionGeneration(generation, "failed");
+        generation.error = "Provider cost exceeded reservation";
+        addLedger({
+          organizationId,
+          generationId: generation.id,
+          type: "release",
+          amount: generation.reservedCredits,
+          idempotencyKey: releaseIdempotencyKey(generation.id),
+        });
+        continue;
+      }
+      transitionGeneration(generation, "media_processing");
+      transitionGeneration(generation, "safety_postcheck");
+      transitionGeneration(generation, "publishing");
       generation.completedAt = new Date().toISOString();
       generation.consumedCredits =
         providerJob.actualCostCredits ?? generation.estimatedCredits;
@@ -493,6 +585,7 @@ export async function refreshDemoGenerations(organizationId: string) {
         amount: generation.consumedCredits,
         idempotencyKey: consumptionIdempotencyKey(generation.id),
       });
+      transitionGeneration(generation, "completed");
       audit("generation.completed", "generation", generation.id, {
         outputCount: generation.outputAssetIds.length,
       });

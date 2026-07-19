@@ -2534,6 +2534,220 @@ body {
   color: #b994ff;
 }
 
+.output-settings {
+  margin-top: 16px;
+  border: 1px solid rgba(85, 70, 126, 0.14);
+  border-radius: 10px;
+  background: rgba(247, 245, 252, 0.72);
+}
+
+.output-settings summary {
+  display: grid;
+  min-height: 45px;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  color: #4e475d;
+  font-size: 9px;
+  font-weight: 650;
+  cursor: pointer;
+  list-style: none;
+}
+
+.output-settings summary::-webkit-details-marker {
+  display: none;
+}
+
+.output-settings summary small {
+  color: #696376;
+  font-size: 8px;
+  font-weight: 450;
+}
+
+.output-settings summary svg {
+  transition: transform 150ms ease;
+}
+
+.output-settings[open] summary svg {
+  transform: rotate(180deg);
+}
+
+.output-settings .studio-settings {
+  margin: 0;
+  border-top: 1px solid rgba(85, 70, 126, 0.12);
+  padding: 12px;
+}
+
+.model-detail-card h3 small {
+  color: #6c667a;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.generation-dock {
+  margin-top: 18px;
+  border: 1px solid rgba(84, 70, 123, 0.13);
+  border-radius: 16px;
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.62);
+  box-shadow: 0 15px 40px rgba(49, 37, 88, 0.055);
+  backdrop-filter: blur(14px);
+}
+
+.generation-dock > header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.generation-dock header p {
+  margin: 0;
+  color: #7055a8;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.generation-dock header h2 {
+  margin: 4px 0 0;
+  font-size: 17px;
+  letter-spacing: -.035em;
+}
+
+.generation-dock header > span {
+  color: #696376;
+  font-size: 8px;
+}
+
+.generation-dock-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 9px;
+}
+
+.generation-dock-grid article {
+  display: grid;
+  min-height: 145px;
+  grid-template-columns: 110px 1fr;
+  overflow: hidden;
+  border: 1px solid rgba(84, 70, 123, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .78);
+}
+
+.dock-output,
+.dock-placeholder {
+  min-height: 145px;
+  background-position: center;
+  background-size: cover;
+}
+
+.dock-placeholder {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #29233d, #5b4288);
+  color: #cbb4ff;
+}
+
+.dock-spinner {
+  animation: spin .9s linear infinite;
+}
+
+.dock-meta {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  padding: 10px;
+}
+
+.dock-meta > span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #6a4dad;
+  font-size: 7px;
+  text-transform: capitalize;
+}
+
+.dock-meta b {
+  margin-top: 7px;
+  overflow: hidden;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.dock-meta progress {
+  width: 100%;
+  height: 4px;
+  margin-top: 10px;
+  border: 0;
+  border-radius: 5px;
+  accent-color: #8b5ce6;
+}
+
+.dock-meta small {
+  margin-top: 5px;
+  color: #696376;
+  font-size: 7px;
+}
+
+.generation-dock-empty {
+  display: flex;
+  min-height: 82px;
+  align-items: center;
+  gap: 12px;
+}
+
+.generation-dock-empty > span {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 10px;
+  background: #eee7fb;
+  color: #7952c4;
+}
+
+.generation-dock-empty b {
+  font-size: 10px;
+}
+
+.generation-dock-empty p {
+  margin: 4px 0 0;
+  color: #635f70;
+  font-size: 8px;
+}
+
+.sidebar nav button,
+.primary-button,
+.secondary-button,
+.operation-tabs button,
+.generate-button {
+  font-size: 11px;
+}
+
+.prompt-field > span,
+.studio-settings label > span,
+.test-card blockquote,
+.project-summary > p {
+  font-size: 10px;
+}
+
+.test-card dt,
+.strategy-label,
+.test-card dd,
+.brand-context-card li,
+.model-detail-card > p:not(.eyebrow),
+.model-detail-card dl div {
+  font-size: 9px;
+}
+
 .model-health span {
   color: #5d596b;
 }
@@ -2645,6 +2859,9 @@ body {
   .preset-carousel {
     grid-template-columns: repeat(2, 1fr);
   }
+  .generation-dock-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 @media (max-width: 780px) {
@@ -2681,5 +2898,15 @@ body {
   }
   .generator-panel {
     padding: 17px;
+  }
+  .generation-dock-grid {
+    grid-template-columns: 1fr;
+  }
+  .generation-dock-grid article {
+    grid-template-columns: 92px 1fr;
+  }
+  .dock-output,
+  .dock-placeholder {
+    min-height: 118px;
   }
 }

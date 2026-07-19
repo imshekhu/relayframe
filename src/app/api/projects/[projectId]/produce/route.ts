@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { produceApprovedDemoCards } from "@/lib/demo-store";
 import {
   apiError,
   enforceMutationSecurity,
   requestContextFromRequest,
 } from "@/lib/request-context";
+import { workspaceService } from "@/services/workspace-service";
 
 export async function POST(
   request: Request,
@@ -25,7 +25,7 @@ export async function POST(
   const organizationId = authContext.organizationId;
   const { projectId } = await context.params;
   try {
-    const generations = await produceApprovedDemoCards(
+    const generations = await workspaceService.produceProject(
       organizationId,
       projectId,
     );

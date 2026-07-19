@@ -17,7 +17,7 @@ import {
   WandSparkles,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   Asset,
   AuditEvent,
@@ -26,6 +26,7 @@ import type {
   ModelCapability,
   Project,
 } from "@/domain/types";
+import { useApiMutation } from "@/hooks/use-api-mutation";
 
 export type ModalKind =
   | "upload"
@@ -71,17 +72,55 @@ export function InteractionModal({
   onNotice: (message: string) => void;
   onCamera?: (value: string) => void;
 }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [reviewUrl, setReviewUrl] = useState("");
+  const { execute, busy, error, clearError } = useApiMutation();
+  const dialogRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    const close = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const background = document.querySelectorAll<HTMLElement>(
+      ".sidebar, .main-panel",
+    );
+    background.forEach((element) => {
+      element.inert = true;
+    });
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    dialogRef.current
+      ?.querySelector<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      )
+      ?.focus();
+
+    const keyboard = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !busy) onClose();
+      if (event.key !== "Tab" || !dialogRef.current) return;
+      const focusable = [
+        ...dialogRef.current.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+        ),
+      ];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
-    window.addEventListener("keydown", close);
-    return () => window.removeEventListener("keydown", close);
-  }, [onClose]);
+    window.addEventListener("keydown", keyboard);
+    return () => {
+      window.removeEventListener("keydown", keyboard);
+      background.forEach((element) => {
+        element.inert = false;
+      });
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus();
+    };
+  }, [busy, onClose]);
 
   async function mutate(
     url: string,
@@ -89,28 +128,17 @@ export function InteractionModal({
     message: string,
     method = "POST",
   ) {
-    setBusy(true);
-    setError(null);
+    clearError();
     try {
-      const response = await fetch(url, {
+      await execute(url, {
         method,
-        headers: {
-          "Content-Type": "application/json",
-          "x-relayframe-organization": "org_demo",
-        },
         body: JSON.stringify(body),
       });
-      const result = (await response.json()) as { error?: string };
-      if (!response.ok) throw new Error(result.error ?? "Action failed");
       await onRefresh();
       onNotice(message);
       onClose();
-    } catch (mutationError) {
-      setError(
-        mutationError instanceof Error ? mutationError.message : "Action failed",
-      );
-    } finally {
-      setBusy(false);
+    } catch {
+      // useApiMutation exposes the safe error beside the affected action.
     }
   }
 
@@ -124,10 +152,11 @@ export function InteractionModal({
       className="modal-backdrop"
       role="presentation"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (event.target === event.currentTarget && !busy) onClose();
       }}
     >
       <section
+        ref={dialogRef}
         className="interaction-modal"
         role="dialog"
         aria-modal="true"
@@ -137,6 +166,7 @@ export function InteractionModal({
           className="modal-close"
           type="button"
           onClick={onClose}
+          disabled={busy}
           aria-label="Close dialog"
         >
           <X size={17} />
@@ -154,8 +184,7 @@ export function InteractionModal({
           formValues={formValues}
           mutate={mutate}
           setReviewUrl={setReviewUrl}
-          setBusy={setBusy}
-          setError={setError}
+          execute={execute}
           onClose={onClose}
           onNotice={onNotice}
           onCamera={onCamera}
@@ -178,8 +207,7 @@ function ModalContent({
   formValues,
   mutate,
   setReviewUrl,
-  setBusy,
-  setError,
+  execute,
   onClose,
   onNotice,
   onCamera,
@@ -201,8 +229,10 @@ function ModalContent({
     method?: string,
   ) => Promise<void>;
   setReviewUrl: (url: string) => void;
-  setBusy: (value: boolean) => void;
-  setError: (value: string | null) => void;
+  execute: <T>(
+    url: string,
+    init?: Omit<RequestInit, "signal">,
+  ) => Promise<T>;
   onClose: () => void;
   onNotice: (message: string) => void;
   onCamera?: (value: string) => void;
@@ -291,22 +321,15 @@ function ModalContent({
 
   if (kind === "review") {
     async function createLink() {
-      setBusy(true);
-      setError(null);
-      const response = await fetch(
-        `/api/projects/${project.id}/review-link`,
-        {
-          method: "POST",
-          headers: { "x-relayframe-organization": "org_demo" },
-        },
-      );
-      const result = (await response.json()) as { url?: string; error?: string };
-      setBusy(false);
-      if (!response.ok || !result.url) {
-        setError(result.error ?? "Could not create link");
-        return;
+      try {
+        const result = await execute<{ url: string }>(
+          `/api/projects/${project.id}/review-link`,
+          { method: "POST" },
+        );
+        setReviewUrl(`${location.origin}${result.url}`);
+      } catch {
+        // Error state is surfaced by the mutation hook.
       }
-      setReviewUrl(`${location.origin}${result.url}`);
     }
     return (
       <>

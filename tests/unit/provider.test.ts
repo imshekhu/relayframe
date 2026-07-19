@@ -12,6 +12,7 @@ describe("demo provider adapter", () => {
     const provider = new DemoGenerationProvider();
     const request = {
       generationId: "gen_provider_test",
+      modelId: "relay-image-fast",
       operation: "text_to_image" as const,
       prompt: "A premium editorial product photograph",
       aspectRatio: "4:5",
@@ -39,6 +40,7 @@ describe("demo provider adapter", () => {
     expect(() =>
       provider.validate({
         generationId: "gen_bad",
+        modelId: "relay-motion",
         operation: "text_to_video",
         prompt: "A valid but unsupported request",
         aspectRatio: "4:5",

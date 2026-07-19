@@ -1,24 +1,22 @@
 import { NextResponse } from "next/server";
 import { generationRequestSchema } from "@/domain/schemas";
 import {
-  createDemoGeneration,
-  demoSnapshot,
-  refreshDemoGenerations,
-} from "@/lib/demo-store";
-import {
   apiError,
+  applicationErrorResponse,
   enforceMutationSecurity,
   organizationFromRequest,
   readBoundedJson,
   RequestBodyError,
   requestContextFromRequest,
 } from "@/lib/request-context";
+import { workspaceService } from "@/services/workspace-service";
+import { logDomainEvent } from "@/lib/observability";
 
 export async function GET(request: Request) {
   const organizationId = organizationFromRequest(request);
   if (!organizationId) return apiError("Invalid organization", 401);
   try {
-    const snapshot = await refreshDemoGenerations(organizationId);
+    const snapshot = workspaceService.snapshot();
     return NextResponse.json({
       generations: snapshot.generations,
       assets: snapshot.assets,
@@ -67,18 +65,29 @@ export async function POST(request: Request) {
   }
 
   try {
-    const generation = await createDemoGeneration(
+    const generation = await workspaceService.createGeneration(
       organizationId,
       parsed.data,
     );
+    logDomainEvent("info", "generation.accepted", {
+      organizationId,
+      generationId: generation.id,
+      modelId: generation.modelId,
+      operation: generation.operation,
+      reservedCredits: generation.reservedCredits,
+    });
     return NextResponse.json(
-      { generation, availableCredits: demoSnapshot().availableCredits },
+      {
+        generation,
+        availableCredits: workspaceService.snapshot().availableCredits,
+      },
       { status: 202 },
     );
   } catch (error) {
-    return apiError(
-      error instanceof Error ? error.message : "Generation failed",
-      400,
-    );
+    logDomainEvent("warn", "generation.rejected", {
+      organizationId,
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
+    return applicationErrorResponse(error);
   }
 }

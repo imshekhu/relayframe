@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { updateTestCardState } from "@/lib/demo-store";
 import {
   apiError,
   enforceMutationSecurity,
@@ -8,6 +7,7 @@ import {
   RequestBodyError,
   requestContextFromRequest,
 } from "@/lib/request-context";
+import { workspaceService } from "@/services/workspace-service";
 
 const updateSchema = z.object({
   state: z.enum(["draft", "approved", "rejected"]),
@@ -43,7 +43,11 @@ export async function PATCH(
   const { cardId } = await context.params;
   try {
     return NextResponse.json(
-      updateTestCardState(organizationId, cardId, parsed.data.state),
+      workspaceService.updateTestCard(
+        organizationId,
+        cardId,
+        parsed.data.state,
+      ),
     );
   } catch (error) {
     return apiError(

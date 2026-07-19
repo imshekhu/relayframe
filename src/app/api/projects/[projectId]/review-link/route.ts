@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { createDemoReviewLink } from "@/lib/demo-store";
 import {
   apiError,
   enforceMutationSecurity,
   requestContextFromRequest,
 } from "@/lib/request-context";
+import { workspaceService } from "@/services/workspace-service";
 
 export async function POST(
   request: Request,
@@ -25,7 +25,7 @@ export async function POST(
   const { projectId } = await context.params;
   try {
     return NextResponse.json(
-      createDemoReviewLink(organizationId, projectId),
+      workspaceService.createReviewLink(organizationId, projectId),
     );
   } catch (error) {
     return apiError(error instanceof Error ? error.message : "Review failed");

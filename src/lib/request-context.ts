@@ -1,6 +1,8 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
+import { normalizeApplicationError } from "@/domain/errors";
 import type { OrganizationRole } from "@/domain/types";
 import {
   isDemoMode,
@@ -43,16 +45,29 @@ export function apiError(
   message: string,
   status = 400,
   headers?: HeadersInit,
+  code = "REQUEST_FAILED",
 ) {
+  const requestId = randomUUID();
   return NextResponse.json(
-    { error: message },
+    { error: message, code, requestId },
     {
       status,
       headers: {
         "Cache-Control": "no-store",
+        "X-Request-Id": requestId,
         ...headers,
       },
     },
+  );
+}
+
+export function applicationErrorResponse(error: unknown) {
+  const normalized = normalizeApplicationError(error);
+  return apiError(
+    normalized.message,
+    normalized.status,
+    undefined,
+    normalized.code,
   );
 }
 

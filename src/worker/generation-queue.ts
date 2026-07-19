@@ -42,6 +42,7 @@ export function createGenerationWorker(
       if (!resolved) throw new Error("Model route unavailable");
       const canonical = {
         generationId,
+        modelId: resolved.capability.id,
         operation: request.operation,
         prompt: request.prompt,
         aspectRatio: request.aspectRatio,

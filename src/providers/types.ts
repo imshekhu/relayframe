@@ -5,6 +5,7 @@ import type {
 
 export interface CanonicalGenerationRequest {
   generationId: string;
+  modelId: string;
   operation: GenerationOperation;
   prompt: string;
   aspectRatio: string;

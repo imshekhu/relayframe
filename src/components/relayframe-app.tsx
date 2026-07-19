@@ -37,51 +37,34 @@ import {
   Zap,
 } from "lucide-react";
 import {
-  useCallback,
   useEffect,
   useState,
 } from "react";
 import type {
   Asset,
-  AuditEvent,
-  Brand,
-  CreativeBrief,
   Generation,
-  LedgerEntry,
   ModelCapability,
-  Organization,
   Project,
-  StoryboardFrame,
   TestCard,
 } from "@/domain/types";
+import type { WorkspaceSnapshot } from "@/domain/workspace";
 import {
   InteractionModal,
   type ModalKind,
 } from "@/components/interaction-modal";
+import { GenerationDock } from "@/components/generation-dock";
+import {
+  useNotice,
+  useWorkspaceState,
+} from "@/hooks/use-workspace";
+import {
+  useWorkspaceNavigation,
+  type WorkspaceView,
+} from "@/hooks/use-workspace-navigation";
+import { useApiMutation } from "@/hooks/use-api-mutation";
 
-type View =
-  | "home"
-  | "studio"
-  | "projects"
-  | "library"
-  | "jobs"
-  | "brand"
-  | "billing";
-
-type Snapshot = {
-  snapshotAt: string;
-  organization: Organization;
-  brands: Brand[];
-  projects: Project[];
-  briefs: CreativeBrief[];
-  testCards: TestCard[];
-  storyboardFrames: StoryboardFrame[];
-  assets: Asset[];
-  generations: Generation[];
-  ledger: LedgerEntry[];
-  audits: AuditEvent[];
-  availableCredits: number;
-};
+type View = WorkspaceView;
+type Snapshot = WorkspaceSnapshot;
 
 const nav = [
   { id: "studio" as const, label: "Create", icon: WandSparkles },
@@ -159,44 +142,21 @@ export function RelayFrameApp({
   initialSnapshot: Snapshot;
   models: ModelCapability[];
 }) {
-  const [view, setView] = useState<View>("studio");
-  const [snapshot, setSnapshot] = useState(initialSnapshot);
+  const { view, navigate: setView } = useWorkspaceNavigation();
+  const { snapshot, refresh, connection } =
+    useWorkspaceState(initialSnapshot);
+  const { notice, notify: setNotice } = useNotice();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [notice, setNotice] = useState<string | null>(null);
-  const [studioSeed, setStudioSeed] = useState("");
+  const [studioPrompt, setStudioPrompt] = useState(
+    "Premium functional beverage on a sculptural stone plinth, calm morning light, editorial product photography, sage and citrus palette",
+  );
   const [modal, setModal] = useState<{
     kind: ModalKind;
-    asset?: Asset;
-    job?: Generation;
+    assetId?: string;
+    jobId?: string;
   } | null>(null);
-
-  const refresh = useCallback(async () => {
-    const response = await fetch("/api/demo", {
-      headers: { "x-relayframe-organization": "org_demo" },
-      cache: "no-store",
-    });
-    if (response.ok) setSnapshot((await response.json()) as Snapshot);
-  }, []);
-
-  useEffect(() => {
-    const running = snapshot.generations.some(
-      (generation) =>
-        !["completed", "failed", "rejected", "cancelled"].includes(
-          generation.state,
-        ),
-    );
-    if (!running) return;
-    const timer = window.setInterval(refresh, 1_000);
-    return () => window.clearInterval(timer);
-  }, [refresh, snapshot.generations]);
-
-  useEffect(() => {
-    if (!notice) return;
-    const timer = window.setTimeout(() => setNotice(null), 6_000);
-    return () => window.clearTimeout(timer);
-  }, [notice]);
 
   useEffect(() => {
     const shortcuts = (event: KeyboardEvent) => {
@@ -344,7 +304,11 @@ export function RelayFrameApp({
           <div className="topbar-actions">
             <span className="system-status">
               <i />
-              Demo provider healthy
+              {connection === "online"
+                ? "Demo provider healthy"
+                : connection === "refreshing"
+                  ? "Syncing workspace"
+                  : "Connection degraded"}
             </span>
             <button
               className="credit-pill"
@@ -382,7 +346,7 @@ export function RelayFrameApp({
               project={activeProject}
               onModal={(kind) => setModal({ kind })}
               onStudioPrompt={(prompt) => {
-                setStudioSeed(prompt);
+                setStudioPrompt(prompt);
                 setView("studio");
               }}
             />
@@ -391,7 +355,8 @@ export function RelayFrameApp({
             <Studio
               snapshot={snapshot}
               models={models}
-              promptSeed={studioSeed}
+              prompt={studioPrompt}
+              onPromptChange={setStudioPrompt}
               onModal={(kind) => setModal({ kind })}
               onNotice={setNotice}
               onGenerated={async () => {
@@ -413,14 +378,16 @@ export function RelayFrameApp({
           {view === "library" && (
             <LibraryView
               snapshot={snapshot}
-              onModal={(kind, payload) => setModal({ kind, ...payload })}
+              onModal={(kind, payload) =>
+                setModal({ kind, assetId: payload?.asset?.id })
+              }
               onNotice={setNotice}
             />
           )}
           {view === "jobs" && (
             <JobsView
               snapshot={snapshot}
-              onModal={(job) => setModal({ kind: "job", job })}
+              onModal={(job) => setModal({ kind: "job", jobId: job.id })}
               onView={setView}
             />
           )}
@@ -510,7 +477,14 @@ export function RelayFrameApp({
       {modal && (
         <InteractionModal
           kind={modal.kind}
-          payload={{ asset: modal.asset, job: modal.job }}
+          payload={{
+            asset: snapshot.assets.find(
+              (asset) => asset.id === modal.assetId,
+            ),
+            job: snapshot.generations.find(
+              (generation) => generation.id === modal.jobId,
+            ),
+          }}
           project={activeProject}
           brand={snapshot.brands[0]}
           models={models}
@@ -519,7 +493,9 @@ export function RelayFrameApp({
           onRefresh={refresh}
           onNotice={setNotice}
           onCamera={(value) => {
-            setStudioSeed((current) => `${current || ""}${current ? ". " : ""}${value}`);
+            setStudioPrompt((current) =>
+              `${current}${current ? ". " : ""}${value}`,
+            );
           }}
         />
       )}
@@ -810,14 +786,16 @@ function Metric({
 function Studio({
   snapshot,
   models,
-  promptSeed,
+  prompt,
+  onPromptChange,
   onModal,
   onNotice,
   onGenerated,
 }: {
   snapshot: Snapshot;
   models: ModelCapability[];
-  promptSeed: string;
+  prompt: string;
+  onPromptChange: React.Dispatch<React.SetStateAction<string>>;
   onModal: (kind: ModalKind) => void;
   onNotice: (message: string) => void;
   onGenerated: () => Promise<void>;
@@ -827,19 +805,21 @@ function Studio({
   const eligibleModels = models.filter((model) =>
     model.operations.includes(operation),
   );
-  const [modelId, setModelId] = useState(eligibleModels[0]?.id ?? "");
-  const [prompt, setPrompt] = useState(
-    promptSeed ||
-      "Premium functional beverage on a sculptural stone plinth, calm morning light, editorial product photography, sage and citrus palette",
-  );
+  const [modelId, setModelId] = useState("auto");
   const [aspectRatio, setAspectRatio] = useState("4:5");
   const [outputCount, setOutputCount] = useState(2);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    execute: executeGeneration,
+    busy: submitting,
+    error,
+  } = useApiMutation();
 
-  const effectiveModelId = eligibleModels.some((model) => model.id === modelId)
-    ? modelId
-    : (eligibleModels[0]?.id ?? "");
+  const effectiveModelId =
+    modelId === "auto"
+      ? (eligibleModels[0]?.id ?? "")
+      : eligibleModels.some((model) => model.id === modelId)
+        ? modelId
+        : (eligibleModels[0]?.id ?? "");
   const selectedModel = models.find((model) => model.id === effectiveModelId);
   const supportedRatios = selectedModel?.aspectRatios ?? ["1:1"];
   const effectiveAspectRatio = supportedRatios.includes(aspectRatio)
@@ -858,36 +838,22 @@ function Studio({
     : 0;
 
   async function generate() {
-    setSubmitting(true);
-    setError(null);
     try {
-      const response = await fetch("/api/generations", {
+      await executeGeneration("/api/generations", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-relayframe-organization": "org_demo",
-        },
         body: JSON.stringify({
           projectId: snapshot.projects[0]?.id,
           operation,
           prompt,
-          modelId: effectiveModelId,
+          modelId: modelId === "auto" ? "auto" : effectiveModelId,
           aspectRatio: effectiveAspectRatio,
           outputCount: effectiveOutputCount,
           idempotencyKey: `ui-${crypto.randomUUID()}`,
         }),
       });
-      const result = (await response.json()) as { error?: string };
-      if (!response.ok) throw new Error(result.error ?? "Generation failed");
       await onGenerated();
-    } catch (generationError) {
-      setError(
-        generationError instanceof Error
-          ? generationError.message
-          : "Generation failed",
-      );
-    } finally {
-      setSubmitting(false);
+    } catch {
+      // The mutation hook exposes a safe inline error.
     }
   }
 
@@ -920,7 +886,7 @@ function Studio({
                 type="button"
                 key={label}
                 onClick={() => {
-                  setPrompt(value);
+                  onPromptChange(value);
                   onNotice(`${label} preset applied`);
                 }}
               >
@@ -935,7 +901,7 @@ function Studio({
               ["image_to_image", Layers3, "Edit"],
               ["text_to_video", Film, "Video"],
               ["image_to_video", Play, "Animate"],
-            ].map(([id, Icon, label]) => {
+            ].map(([id, Icon, label], index, items) => {
               const TabIcon = Icon as typeof ImageIcon;
               return (
                 <button
@@ -943,8 +909,23 @@ function Studio({
                   className={operation === id ? "is-active" : ""}
                   type="button"
                   role="tab"
+                  id={`operation-${id}`}
+                  aria-controls="generation-input-panel"
                   aria-selected={operation === id}
+                  tabIndex={operation === id ? 0 : -1}
                   onClick={() => setOperation(id as Generation["operation"])}
+                  onKeyDown={(event) => {
+                    if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+                    event.preventDefault();
+                    const direction = event.key === "ArrowRight" ? 1 : -1;
+                    const nextIndex =
+                      (index + direction + items.length) % items.length;
+                    const nextId = items[nextIndex][0] as Generation["operation"];
+                    setOperation(nextId);
+                    document
+                      .getElementById(`operation-${nextId}`)
+                      ?.focus();
+                  }}
                 >
                   <TabIcon size={15} />
                   {String(label)}
@@ -953,7 +934,12 @@ function Studio({
             })}
           </div>
 
-          <label className="prompt-field">
+          <label
+            className="prompt-field"
+            id="generation-input-panel"
+            role="tabpanel"
+            aria-labelledby={`operation-${operation}`}
+          >
             <span>
               Describe your idea
               <small>{prompt.length} / 4,000</small>
@@ -962,14 +948,14 @@ function Studio({
               suppressHydrationWarning
               value={prompt}
               maxLength={4000}
-              onChange={(event) => setPrompt(event.target.value)}
+              onChange={(event) => onPromptChange(event.target.value)}
               rows={7}
             />
             <div className="prompt-tools">
               <button
                 type="button"
                 onClick={() => {
-                  setPrompt((value) =>
+                  onPromptChange((value) =>
                     `${value}. Apply Luma Labs brand palette, evidence-aware tone, and approved product claims only.`,
                   );
                   onNotice("Brand rules applied to prompt");
@@ -979,7 +965,7 @@ function Studio({
               <button
                 type="button"
                 onClick={() => {
-                  setPrompt((value) =>
+                  onPromptChange((value) =>
                     `${value}. Add precise composition, realistic material detail, controlled highlights, and production-ready negative space.`,
                   );
                   onNotice("Prompt enhanced");
@@ -999,46 +985,59 @@ function Studio({
             </button>
           )}
 
-          <div className="studio-settings">
-            <label>
-              <span>Model</span>
-              <select
-                value={effectiveModelId}
-                onChange={(event) => setModelId(event.target.value)}
-              >
-                {eligibleModels.map((model) => (
-                  <option value={model.id} key={model.id}>
-                    {model.displayName}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>Aspect ratio</span>
-              <select
-                value={effectiveAspectRatio}
-                onChange={(event) => setAspectRatio(event.target.value)}
-              >
-                {supportedRatios.map((ratio) => (
-                  <option key={ratio}>{ratio}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>Outputs</span>
-              <select
-                value={effectiveOutputCount}
-                onChange={(event) => setOutputCount(Number(event.target.value))}
-              >
-                {Array.from(
-                  { length: selectedModel?.maxOutputs ?? 1 },
-                  (_, index) => index + 1,
-                ).map((count) => (
-                  <option key={count}>{count}</option>
-                ))}
-              </select>
-            </label>
-          </div>
+          <details className="output-settings">
+            <summary>
+              <span>Output settings</span>
+              <small>
+                {modelId === "auto" ? "Auto" : selectedModel?.displayName} ·{" "}
+                {effectiveAspectRatio} · {effectiveOutputCount} outputs
+              </small>
+              <ChevronDown size={14} />
+            </summary>
+            <div className="studio-settings">
+              <label>
+                <span>Model</span>
+                <select
+                  value={modelId}
+                  onChange={(event) => setModelId(event.target.value)}
+                >
+                  <option value="auto">Auto · recommended</option>
+                  {eligibleModels.map((model) => (
+                    <option value={model.id} key={model.id}>
+                      {model.displayName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Aspect ratio</span>
+                <select
+                  value={effectiveAspectRatio}
+                  onChange={(event) => setAspectRatio(event.target.value)}
+                >
+                  {supportedRatios.map((ratio) => (
+                    <option key={ratio}>{ratio}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Outputs</span>
+                <select
+                  value={effectiveOutputCount}
+                  onChange={(event) =>
+                    setOutputCount(Number(event.target.value))
+                  }
+                >
+                  {Array.from(
+                    { length: selectedModel?.maxOutputs ?? 1 },
+                    (_, index) => index + 1,
+                  ).map((count) => (
+                    <option key={count}>{count}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </details>
 
           <div className="generation-cost">
             <div>
@@ -1081,7 +1080,12 @@ function Studio({
           </div>
           <div className="model-detail-card">
             <p className="eyebrow">Selected model</p>
-            <h3>{selectedModel?.displayName ?? "Choose a model"}</h3>
+            <h3>
+              {modelId === "auto" ? "Auto" : selectedModel?.displayName}
+              {modelId === "auto" && selectedModel ? (
+                <small> → {selectedModel.displayName}</small>
+              ) : null}
+            </h3>
             <p>
               {selectedModel?.qualityTier === "premium"
                 ? "High-fidelity output for approved hero concepts."
@@ -1102,6 +1106,10 @@ function Studio({
           </div>
         </aside>
       </div>
+      <GenerationDock
+        generations={snapshot.generations}
+        assets={snapshot.assets}
+      />
     </div>
   );
 }
@@ -1424,7 +1432,14 @@ function JobsView({
               <span><b>{generation.operation.replaceAll("_", " ")}</b><small>{generation.id.slice(0, 12)}</small></span>
               <span>{generation.modelId}</span>
               <StatusDot state={generation.state} />
-              <span className="job-progress"><i style={{ width: `${generation.progress}%` }} /><small>{generation.progress}%</small></span>
+              <span
+                className="job-progress"
+                role="progressbar"
+                aria-label={`${generation.operation.replaceAll("_", " ")} progress`}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={generation.progress}
+              ><i style={{ width: `${generation.progress}%` }} /><small>{generation.progress}%</small></span>
               <span>{generation.state === "completed" ? generation.consumedCredits : generation.reservedCredits} cr</span>
               <span>{relativeTime(generation.createdAt, snapshot.snapshotAt)}</span>
             </button>

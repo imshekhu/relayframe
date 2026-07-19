@@ -28,9 +28,15 @@ test("renders and navigates the complete SaaS workspace", async (
   const navigation = page.getByRole("navigation", { name: "Primary" });
 
   await navigation.getByRole("button", { name: "Projects" }).click();
+  await expect(page).toHaveURL(/view=projects/);
   await expect(
     page.getByRole("heading", { name: "Luma launch sprint" }),
   ).toBeVisible();
+  await page.goBack();
+  await expect(
+    page.getByRole("heading", { name: "What will you create?" }),
+  ).toBeVisible();
+  await navigation.getByRole("button", { name: "Projects" }).click();
 
   await navigation.getByRole("button", { name: "Library" }).click();
   await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
@@ -122,6 +128,7 @@ test("supports global search and functional studio prompt tools", async ({
   await page.getByRole("button", { name: "Camera recipe" }).click();
   await page.getByRole("button", { name: /35mm slow push-in/ }).click();
   await expect(page.getByRole("status")).toContainText("35mm slow push-in applied");
+  await expect(prompt).toHaveValue(/35mm lens, slow controlled dolly-in/);
   await page.getByRole("button", { name: "Capability registry" }).click();
   await expect(page.getByRole("heading", { name: "Model registry" })).toBeVisible();
   await expect(page.locator(".capability-list > div")).toHaveCount(3);
@@ -301,15 +308,20 @@ test("keeps interactive dialogs accessible", async ({ page }) => {
     .getByRole("button", { name: "More tools" })
     .click();
   await page.getByRole("button", { name: "Overview", exact: true }).click();
-  await page.getByRole("button", { name: "Import assets" }).click();
+  const trigger = page.getByRole("button", { name: "Import assets" });
+  await trigger.click();
   await expect(
     page.getByRole("heading", { name: "Import source media" }),
   ).toBeVisible();
+  const close = page.getByRole("button", { name: "Close dialog" });
+  await expect(close).toBeFocused();
   const results = await new AxeBuilder({ page }).analyze();
   const severe = results.violations.filter((violation) =>
     ["serious", "critical"].includes(violation.impact ?? ""),
   );
   expect(severe).toEqual([]);
+  await close.click();
+  await expect(trigger).toBeFocused();
 });
 
 test("fits and navigates at a compact touch viewport", async ({

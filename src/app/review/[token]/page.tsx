@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { Check, MessageSquare, ShieldCheck } from "lucide-react";
-import { getDemoReview } from "@/lib/demo-store";
+import { workspaceService } from "@/services/workspace-service";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -18,7 +18,7 @@ export default async function ReviewPage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  const review = getDemoReview(token);
+  const review = workspaceService.review(token);
   if (!review) notFound();
 
   return (

@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { RelayFrameApp } from "@/components/relayframe-app";
-import { demoSnapshot } from "@/lib/demo-store";
 import { listModelCapabilities } from "@/providers/registry";
+import { workspaceService } from "@/services/workspace-service";
 import {
   isDemoMode,
   SESSION_COOKIE,
@@ -32,7 +32,7 @@ export default async function Home() {
   }
   return (
     <RelayFrameApp
-      initialSnapshot={demoSnapshot()}
+      initialSnapshot={workspaceService.snapshot()}
       models={listModelCapabilities()}
     />
   );
