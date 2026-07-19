@@ -5,6 +5,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(process.cwd(), "src"),
+      "server-only": path.resolve(
+        process.cwd(),
+        "tests/support/server-only.ts",
+      ),
     },
   },
   test: {
