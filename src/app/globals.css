@@ -2627,6 +2627,15 @@ body {
   .sidebar nav button:nth-of-type(5) {
     display: flex;
   }
+  .studio-layout,
+  .overview-columns,
+  .brand-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .generator-panel,
+  .studio-aside {
+    min-width: 0;
+  }
   .preset-carousel {
     display: flex;
     overflow-x: auto;
