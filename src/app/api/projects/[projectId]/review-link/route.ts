@@ -15,13 +15,13 @@ export async function POST(
     limit: 10,
   });
   if (guard) return guard;
-  const context = requestContextFromRequest(request, [
+  const authContext = requestContextFromRequest(request, [
     "owner",
     "admin",
     "creator",
   ]);
-  if (!context) return apiError("Insufficient permission", 403);
-  const organizationId = context.organizationId;
+  if (!authContext) return apiError("Insufficient permission", 403);
+  const organizationId = authContext.organizationId;
   const { projectId } = await context.params;
   try {
     return NextResponse.json(

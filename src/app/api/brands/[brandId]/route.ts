@@ -16,9 +16,9 @@ export async function PATCH(
     limit: 10,
   });
   if (guard) return guard;
-  const context = requestContextFromRequest(request, ["owner", "admin"]);
-  if (!context) return apiError("Insufficient permission", 403);
-  const organizationId = context.organizationId;
+  const authContext = requestContextFromRequest(request, ["owner", "admin"]);
+  if (!authContext) return apiError("Insufficient permission", 403);
+  const organizationId = authContext.organizationId;
   const parsed = brandUpdateSchema.safeParse(
     await request.json().catch(() => null),
   );
