@@ -1,0 +1,51 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: relayframe
+      POSTGRES_USER: relayframe
+      POSTGRES_PASSWORD: relayframe-local
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - relayframe-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U relayframe"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - relayframe-local-redis
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - relayframe-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "relayframe-local-redis", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: relayframe
+      MINIO_ROOT_PASSWORD: relayframe-local-secret
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - relayframe-minio:/data
+
+volumes:
+  relayframe-postgres:
+  relayframe-redis:
+  relayframe-minio:

@@ -1,36 +1,154 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# RelayFrame
 
-## Getting Started
+An AI-native creative testing workspace for performance-marketing teams.
 
-First, run the development server:
+RelayFrame turns a campaign brief into structured creative hypotheses, generates
+low-cost storyboards before expensive production, preserves complete media
+lineage, and connects exported assets to campaign results.
 
-```bash
+This repository contains the first production-oriented vertical slice:
+
+- Organization-scoped SaaS workspace
+- Versioned brand system and claims guardrails
+- Campaign projects and Creative Test Cards
+- Storyboard approval workflow
+- Provider-neutral image/video generation API
+- Auto model routing with exact capability validation and immutable routing result
+- Deterministic local demo provider
+- Durable generation state model
+- Immutable credit reservation and settlement ledger
+- Asset library with parent/generation lineage
+- Worker and provider adapter boundaries
+- PostgreSQL/Drizzle production schema
+- Redis/BullMQ worker foundation
+- Local Postgres, Redis, and MinIO stack
+- Responsive, accessible SaaS interface
+- Reactive live-output dock with abortable, visibility-aware job synchronization
+- URL-backed navigation with browser history and deep-link support
+
+## Product surfaces
+
+- Overview and creative copilot
+- Multi-model generation studio
+- Project strategy and Test Card approval
+- Storyboard pre-production gate
+- Searchable asset library
+- Generation job center
+- Versioned brand system
+- Usage and immutable credit ledger
+
+## Local development
+
+The default application uses a safe in-memory demo organization and simulated
+provider, so the complete product flow works without external credentials.
+
+```sh
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Development automatically enables the shared local demo workspace. Production
+fails closed unless a valid signed session and `SESSION_SECRET` are configured.
+Never set `RELAYFRAME_DEMO_MODE=true` on a public production deployment.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Open [http://localhost:3000](http://localhost:3000).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Generate an image concept in the Studio. The demo provider advances through the
+same asynchronous job states as a real provider and produces deterministic local
+media after several seconds.
 
-## Learn More
+## Production services
 
-To learn more about Next.js, take a look at the following resources:
+Start local PostgreSQL, Redis, and S3-compatible storage:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```sh
+docker compose up -d
+cp .env.example .env.local
+npm run db:generate
+npm run db:migrate
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+After the generated migration, apply the tenant-isolation controls:
 
-## Deploy on Vercel
+```sh
+psql "$DATABASE_URL" -f security/sql/tenant-rls.sql
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The application database transaction must set
+`app.current_organization_id` from the verified server session before querying
+tenant-owned tables.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The demo store intentionally remains the active repository in this MVP. The
+Drizzle schema and worker are the migration target for persistent deployments.
+
+## Verification
+
+```sh
+npm run lint
+npm run typecheck
+npm run test:unit
+npm run test:e2e
+npm run build
+npm audit
+```
+
+GitHub CI additionally runs CodeQL, dependency review, Gitleaks, and SBOM
+generation. See `SECURITY.md`, `docs/security/THREAT_MODEL.md`, and
+`docs/security/OPERATIONS.md`.
+
+## Architecture
+
+```text
+Next.js web/control plane
+├── domain state machines and ledger invariants
+├── organization-scoped APIs
+├── projects, creative strategy, assets and billing
+└── provider-neutral generation contract
+
+BullMQ execution plane
+├── isolated provider adapters
+├── polling/retry/cancellation
+├── media processing boundary
+└── moderation/publishing boundary
+
+Data plane
+├── PostgreSQL transactional state and ledger
+├── Redis queue/rate control
+└── S3-compatible originals and outputs
+```
+
+Routes adapt HTTP only; `WorkspaceService` is the active application boundary.
+Repository and unit-of-work contracts define the PostgreSQL migration seam.
+Generation reads are side-effect free: demo progression uses an explicit sync
+command, while production execution belongs exclusively to workers/outbox jobs.
+
+## Security and economics
+
+- Provider credentials remain server-side.
+- API requests are organization-scoped.
+- Organization identity comes from a signed, expiring server-side session;
+  client organization headers are ignored.
+- Production fails closed when authentication or session secrets are absent.
+- State-changing requests enforce same-origin policy, bounded bodies,
+  role authorization, and tenant/user/IP rate limits.
+- Inputs are schema validated.
+- Generation requires a pessimistic credit reservation.
+- Settlement releases the reservation before consuming actual credits.
+- Ledger entries are idempotent and append-only.
+- Outputs are not considered published until post-processing and moderation.
+- Security headers and private-by-default media architecture are included.
+- Review capabilities are random, hashed, expiring, and project-scoped.
+- Development databases and object services bind only to loopback.
+- No “unlimited generation” assumptions exist.
+
+## Current limitations
+
+- Authentication is represented by a fixed demo organization.
+- External providers, Stripe, upload quarantine, email, and persistent queues
+  require credentials and deployment configuration.
+- Demo media is generated as local SVG artwork.
+- Campaign result import and review links are represented in the domain and UI
+  but are not yet connected to external ad platforms.
+
+These boundaries are explicit so the prototype remains usable without implying
+that production integrations are already configured.
