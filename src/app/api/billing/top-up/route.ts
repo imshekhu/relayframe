@@ -3,12 +3,22 @@ import { creditTopUpSchema } from "@/domain/schemas";
 import { topUpDemoCredits } from "@/lib/demo-store";
 import {
   apiError,
-  organizationFromRequest,
+  enforceMutationSecurity,
+  requestContextFromRequest,
 } from "@/lib/request-context";
+import { isDemoMode } from "@/security/session";
 
 export async function POST(request: Request) {
-  const organizationId = organizationFromRequest(request);
-  if (!organizationId) return apiError("Invalid organization", 401);
+  if (!isDemoMode()) return apiError("Not found", 404);
+  const guard = enforceMutationSecurity(request, {
+    scope: "demo-credit-top-up",
+    limit: 3,
+    windowMs: 60_000,
+  });
+  if (guard) return guard;
+  const context = requestContextFromRequest(request, ["owner", "admin"]);
+  if (!context) return apiError("Insufficient permission", 403);
+  const organizationId = context.organizationId;
   const parsed = creditTopUpSchema.safeParse(
     await request.json().catch(() => null),
   );

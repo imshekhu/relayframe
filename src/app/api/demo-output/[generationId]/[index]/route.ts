@@ -1,3 +1,6 @@
+import { requestContextFromRequest } from "@/lib/request-context";
+import { isDemoMode } from "@/security/session";
+
 function hash(value: string) {
   let result = 2166136261;
   for (let index = 0; index < value.length; index += 1) {
@@ -8,11 +11,14 @@ function hash(value: string) {
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: {
     params: Promise<{ generationId: string; index: string }>;
   },
 ) {
+  if (!isDemoMode() && !requestContextFromRequest(request)) {
+    return new Response("Not found", { status: 404 });
+  }
   const { generationId, index } = await context.params;
   const seed = hash(`${generationId}:${index}`);
   const palettes = [
@@ -58,7 +64,9 @@ export async function GET(
   return new Response(svg, {
     headers: {
       "Content-Type": "image/svg+xml",
-      "Cache-Control": "public, max-age=31536000, immutable",
+      "Cache-Control": isDemoMode()
+        ? "public, max-age=31536000, immutable"
+        : "private, no-store",
       "X-Content-Type-Options": "nosniff",
     },
   });

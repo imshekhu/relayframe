@@ -3,7 +3,8 @@ import { z } from "zod";
 import { updateTestCardState } from "@/lib/demo-store";
 import {
   apiError,
-  organizationFromRequest,
+  enforceMutationSecurity,
+  requestContextFromRequest,
 } from "@/lib/request-context";
 
 const updateSchema = z.object({
@@ -14,8 +15,19 @@ export async function PATCH(
   request: Request,
   context: { params: Promise<{ cardId: string }> },
 ) {
-  const organizationId = organizationFromRequest(request);
-  if (!organizationId) return apiError("Invalid organization", 401);
+  const guard = enforceMutationSecurity(request, {
+    scope: "test-card:update",
+    limit: 40,
+  });
+  if (guard) return guard;
+  const session = requestContextFromRequest(request, [
+    "owner",
+    "admin",
+    "creator",
+    "reviewer",
+  ]);
+  if (!session) return apiError("Insufficient permission", 403);
+  const organizationId = session.organizationId;
   const parsed = updateSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("Invalid Test Card update", 422);
   const { cardId } = await context.params;

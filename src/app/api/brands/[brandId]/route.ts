@@ -3,15 +3,22 @@ import { brandUpdateSchema } from "@/domain/schemas";
 import { updateDemoBrand } from "@/lib/demo-store";
 import {
   apiError,
-  organizationFromRequest,
+  enforceMutationSecurity,
+  requestContextFromRequest,
 } from "@/lib/request-context";
 
 export async function PATCH(
   request: Request,
   context: { params: Promise<{ brandId: string }> },
 ) {
-  const organizationId = organizationFromRequest(request);
-  if (!organizationId) return apiError("Invalid organization", 401);
+  const guard = enforceMutationSecurity(request, {
+    scope: "brand:update",
+    limit: 10,
+  });
+  if (guard) return guard;
+  const context = requestContextFromRequest(request, ["owner", "admin"]);
+  if (!context) return apiError("Insufficient permission", 403);
+  const organizationId = context.organizationId;
   const parsed = brandUpdateSchema.safeParse(
     await request.json().catch(() => null),
   );

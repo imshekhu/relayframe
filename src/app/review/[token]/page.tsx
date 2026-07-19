@@ -1,6 +1,16 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { Check, MessageSquare, ShieldCheck } from "lucide-react";
 import { getDemoReview } from "@/lib/demo-store";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+export const metadata: Metadata = {
+  title: "Private review | RelayFrame",
+  robots: { index: false, follow: false, noarchive: true },
+  referrer: "no-referrer",
+};
 
 export default async function ReviewPage({
   params,

@@ -3,7 +3,9 @@ import { expect, test } from "@playwright/test";
 
 test.beforeEach(async ({ request }) => {
   await request.post("/api/demo/reset", {
-    headers: { "x-relayframe-organization": "org_demo" },
+    headers: {
+      "x-relayframe-test-token": "relayframe-e2e-isolated-token",
+    },
   });
 });
 
@@ -149,7 +151,7 @@ test("runs project review, Test Card, production, and review-link actions", asyn
   const reviewHref = await page
     .getByRole("link", { name: "Open review page" })
     .getAttribute("href");
-  expect(reviewHref).toContain("/review/review_prj_");
+  expect(reviewHref).toMatch(/\/review\/[A-Za-z0-9_-]{40,}/);
   const reviewResponse = await page.request.get(reviewHref!);
   expect(reviewResponse.ok()).toBe(true);
   expect(await reviewResponse.text()).toContain("Luma launch sprint");
@@ -244,7 +246,8 @@ test("rejects malformed and cross-tenant API requests", async ({ request }) => {
   const tenantResponse = await request.get("/api/demo", {
     headers: { "x-relayframe-organization": "org_other" },
   });
-  expect(tenantResponse.status()).toBe(404);
+  expect(tenantResponse.status()).toBe(200);
+  expect((await tenantResponse.json()).organization.id).toBe("org_demo");
 
   const invalidGeneration = await request.post("/api/generations", {
     headers: { "x-relayframe-organization": "org_demo" },
@@ -258,6 +261,28 @@ test("rejects malformed and cross-tenant API requests", async ({ request }) => {
     },
   });
   expect(invalidGeneration.status()).toBe(422);
+
+  const crossSite = await request.post("/api/projects", {
+    headers: {
+      origin: "https://attacker.example",
+      "x-relayframe-organization": "org_demo",
+    },
+    data: {
+      name: "Attacker project",
+      objective: "This request must never mutate the workspace.",
+      budgetCredits: 100,
+    },
+  });
+  expect(crossSite.status()).toBe(403);
+
+  const document = await request.get("/");
+  expect(document.headers()["content-security-policy"]).toContain(
+    "default-src 'self'",
+  );
+  expect(document.headers()["x-frame-options"]).toBe("DENY");
+  expect(document.headers()["strict-transport-security"]).toContain(
+    "max-age=63072000",
+  );
 });
 
 test("has no serious automated accessibility violations", async ({ page }) => {

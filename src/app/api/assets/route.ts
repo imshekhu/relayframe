@@ -3,12 +3,23 @@ import { assetCreateSchema } from "@/domain/schemas";
 import { createDemoAsset } from "@/lib/demo-store";
 import {
   apiError,
-  organizationFromRequest,
+  enforceMutationSecurity,
+  requestContextFromRequest,
 } from "@/lib/request-context";
 
 export async function POST(request: Request) {
-  const organizationId = organizationFromRequest(request);
-  if (!organizationId) return apiError("Invalid organization", 401);
+  const guard = enforceMutationSecurity(request, {
+    scope: "asset:create",
+    limit: 20,
+  });
+  if (guard) return guard;
+  const context = requestContextFromRequest(request, [
+    "owner",
+    "admin",
+    "creator",
+  ]);
+  if (!context) return apiError("Insufficient permission", 403);
+  const organizationId = context.organizationId;
   const parsed = assetCreateSchema.safeParse(
     await request.json().catch(() => null),
   );

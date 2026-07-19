@@ -44,6 +44,10 @@ npm install
 npm run dev
 ```
 
+Development automatically enables the shared local demo workspace. Production
+fails closed unless a valid signed session and `SESSION_SECRET` are configured.
+Never set `RELAYFRAME_DEMO_MODE=true` on a public production deployment.
+
 Open [http://localhost:3000](http://localhost:3000).
 
 Generate an image concept in the Studio. The demo provider advances through the
@@ -61,6 +65,16 @@ npm run db:generate
 npm run db:migrate
 ```
 
+After the generated migration, apply the tenant-isolation controls:
+
+```sh
+psql "$DATABASE_URL" -f security/sql/tenant-rls.sql
+```
+
+The application database transaction must set
+`app.current_organization_id` from the verified server session before querying
+tenant-owned tables.
+
 The demo store intentionally remains the active repository in this MVP. The
 Drizzle schema and worker are the migration target for persistent deployments.
 
@@ -74,6 +88,10 @@ npm run test:e2e
 npm run build
 npm audit
 ```
+
+GitHub CI additionally runs CodeQL, dependency review, Gitleaks, and SBOM
+generation. See `SECURITY.md`, `docs/security/THREAT_MODEL.md`, and
+`docs/security/OPERATIONS.md`.
 
 ## Architecture
 
@@ -100,12 +118,19 @@ Data plane
 
 - Provider credentials remain server-side.
 - API requests are organization-scoped.
+- Organization identity comes from a signed, expiring server-side session;
+  client organization headers are ignored.
+- Production fails closed when authentication or session secrets are absent.
+- State-changing requests enforce same-origin policy, bounded bodies,
+  role authorization, and tenant/user/IP rate limits.
 - Inputs are schema validated.
 - Generation requires a pessimistic credit reservation.
 - Settlement releases the reservation before consuming actual credits.
 - Ledger entries are idempotent and append-only.
 - Outputs are not considered published until post-processing and moderation.
 - Security headers and private-by-default media architecture are included.
+- Review capabilities are random, hashed, expiring, and project-scoped.
+- Development databases and object services bind only to loopback.
 - No “unlimited generation” assumptions exist.
 
 ## Current limitations

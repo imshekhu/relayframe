@@ -14,7 +14,8 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   webServer: {
-    command: "RELAYFRAME_E2E=1 PORT=3100 npm run start",
+    command:
+      "RELAYFRAME_E2E=1 RELAYFRAME_E2E_TOKEN=relayframe-e2e-isolated-token PORT=3100 npm run start",
     url: "http://localhost:3100/api/health",
     reuseExistingServer: true,
     timeout: 120_000,

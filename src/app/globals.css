@@ -2049,6 +2049,24 @@ kbd {
 .review-storyboards small { margin-bottom: 10px; color: #657064; font-size: 7px; }
 .review-page > footer { display: flex; align-items: center; justify-content: center; gap: 7px; border-top: 1px solid var(--line); padding: 22px; color: #657064; font-size: 8px; }
 
+.security-gate {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(139, 92, 246, 0.13), transparent 24%),
+    #11111b;
+  color: white;
+  text-align: center;
+}
+.security-gate > span { display: grid; width: 58px; height: 58px; place-items: center; border: 1px solid #9a6cff; border-radius: 16px; color: #c4a6ff; font-weight: 800; }
+.security-gate > p:first-of-type { margin: 24px 0 8px; color: #9a6cff; font-size: 9px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+.security-gate h1 { margin: 0; font-size: clamp(36px,6vw,68px); letter-spacing: -.06em; }
+.security-gate > p:last-child { max-width: 520px; margin: 17px 0 0; color: #9a98aa; line-height: 1.6; }
+
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes pulse { 50% { opacity: .3; } }
 @keyframes toast-in { from { opacity: 0; transform: translateY(10px); } }

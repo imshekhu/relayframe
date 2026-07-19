@@ -53,16 +53,27 @@ export function createGenerationWorker(
       await onProgress?.(generationId, 20);
       const providerJob = await resolved.provider.submit(
         canonical,
-        `${generationId}:attempt:${job.attemptsMade + 1}`,
+        `${generationId}:provider-submit:v1`,
       );
       let latest = providerJob;
+      const deadline = Date.now() + 10 * 60_000;
       while (!["succeeded", "failed", "cancelled"].includes(latest.state)) {
+        if (Date.now() >= deadline) {
+          await resolved.provider.cancel(providerJob.providerJobId);
+          throw new Error("Provider generation deadline exceeded");
+        }
         await new Promise((resolve) => setTimeout(resolve, 1_000));
         latest = await resolved.provider.status(providerJob.providerJobId);
         await onProgress?.(generationId, latest.progress);
       }
       if (latest.state !== "succeeded") {
         throw new Error(latest.errorCode ?? "Provider generation failed");
+      }
+      if (
+        latest.actualCostCredits !== undefined &&
+        latest.actualCostCredits > canonical.maxCostCredits
+      ) {
+        throw new Error("Provider cost exceeded authorized reservation");
       }
       return latest;
     },

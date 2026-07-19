@@ -2,17 +2,18 @@ import { NextResponse } from "next/server";
 import { resetDemoState } from "@/lib/demo-store";
 import {
   apiError,
-  organizationFromRequest,
+  resetSecurityRateLimitsForTests,
 } from "@/lib/request-context";
 
 export async function POST(request: Request) {
   if (
-    process.env.NODE_ENV === "production" &&
-    process.env.RELAYFRAME_E2E !== "1"
+    process.env.RELAYFRAME_E2E !== "1" ||
+    !process.env.RELAYFRAME_E2E_TOKEN ||
+    request.headers.get("x-relayframe-test-token") !==
+      process.env.RELAYFRAME_E2E_TOKEN
   ) {
     return apiError("Not found", 404);
   }
-  const organizationId = organizationFromRequest(request);
-  if (organizationId !== "org_demo") return apiError("Invalid organization", 401);
+  resetSecurityRateLimitsForTests();
   return NextResponse.json(resetDemoState());
 }

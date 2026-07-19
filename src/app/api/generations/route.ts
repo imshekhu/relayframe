@@ -7,7 +7,9 @@ import {
 } from "@/lib/demo-store";
 import {
   apiError,
+  enforceMutationSecurity,
   organizationFromRequest,
+  requestContextFromRequest,
 } from "@/lib/request-context";
 
 export async function GET(request: Request) {
@@ -26,8 +28,20 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const organizationId = organizationFromRequest(request);
-  if (!organizationId) return apiError("Invalid organization", 401);
+  const guard = enforceMutationSecurity(request, {
+    scope: "generation:create",
+    limit: 8,
+    windowMs: 60_000,
+    maxBodyBytes: 96 * 1024,
+  });
+  if (guard) return guard;
+  const context = requestContextFromRequest(request, [
+    "owner",
+    "admin",
+    "creator",
+  ]);
+  if (!context) return apiError("Insufficient permission", 403);
+  const organizationId = context.organizationId;
   let body: unknown;
   try {
     body = await request.json();

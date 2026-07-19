@@ -15,7 +15,6 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@vercel/analytics": "^2.0.1",
     "bullmq": "^5.80.8",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",

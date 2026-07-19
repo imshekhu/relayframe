@@ -3,12 +3,23 @@ import { testCardCreateSchema } from "@/domain/schemas";
 import { createDemoTestCard } from "@/lib/demo-store";
 import {
   apiError,
-  organizationFromRequest,
+  enforceMutationSecurity,
+  requestContextFromRequest,
 } from "@/lib/request-context";
 
 export async function POST(request: Request) {
-  const organizationId = organizationFromRequest(request);
-  if (!organizationId) return apiError("Invalid organization", 401);
+  const guard = enforceMutationSecurity(request, {
+    scope: "test-card:create",
+    limit: 30,
+  });
+  if (guard) return guard;
+  const context = requestContextFromRequest(request, [
+    "owner",
+    "admin",
+    "creator",
+  ]);
+  if (!context) return apiError("Insufficient permission", 403);
+  const organizationId = context.organizationId;
   const parsed = testCardCreateSchema.safeParse(
     await request.json().catch(() => null),
   );

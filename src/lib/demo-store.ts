@@ -1,6 +1,6 @@
 import "server-only";
 
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import {
   generationProgress,
   isTerminalGenerationState,
@@ -25,6 +25,7 @@ import type {
 } from "@/domain/types";
 import type { GenerationRequest } from "@/domain/schemas";
 import { resolveModel } from "@/providers/registry";
+import { hashCapabilityToken } from "@/security/session";
 
 const ORG_ID = "org_demo";
 const USER_ID = "usr_demo";
@@ -46,6 +47,14 @@ type DemoState = {
   generations: InternalGeneration[];
   ledger: LedgerEntry[];
   audits: AuditEvent[];
+  reviewLinks: Array<{
+    tokenHash: string;
+    projectId: string;
+    organizationId: string;
+    expiresAt: string;
+    revokedAt?: string;
+    createdAt: string;
+  }>;
 };
 
 function initialState(): DemoState {
@@ -253,6 +262,7 @@ function initialState(): DemoState {
       },
     ],
     audits: [],
+    reviewLinks: [],
   };
 }
 
@@ -339,6 +349,14 @@ export async function createDemoGeneration(
   if (!resolved || !resolved.capability.operations.includes(request.operation)) {
     throw new Error("Requested model does not support this operation");
   }
+  const project = request.projectId
+    ? state.projects.find(
+        (item) =>
+          item.id === request.projectId &&
+          item.organizationId === organizationId,
+      )
+    : undefined;
+  if (request.projectId && !project) throw new Error("Project not found");
   const banned = /\b(nude|sexual minor|impersonate a real person)\b/i;
   if (banned.test(request.prompt)) {
     throw new Error("Request rejected by the demo safety policy");
@@ -355,6 +373,22 @@ export async function createDemoGeneration(
     maxCostCredits: 500,
   };
   const quotedCredits = resolved.provider.quote(canonical);
+  const projectCommitted = project
+    ? state.generations
+        .filter(
+          (item) =>
+            item.projectId === project.id &&
+            !["failed", "rejected", "cancelled"].includes(item.state),
+        )
+        .reduce(
+          (sum, item) =>
+            sum + (item.consumedCredits || item.reservedCredits),
+          0,
+        )
+    : 0;
+  if (project && projectCommitted + quotedCredits > project.budgetCredits) {
+    throw new Error("Project credit ceiling exceeded");
+  }
   if (calculateCreditBalance(state.ledger) < quotedCredits) {
     throw new Error("Insufficient credits");
   }
@@ -469,7 +503,14 @@ export function updateTestCardState(
 ) {
   requireDemoOrganization(organizationId);
   const card = state.testCards.find((item) => item.id === cardId);
-  if (!card) throw new Error("Test Card not found");
+  const project = card
+    ? state.projects.find(
+        (item) =>
+          item.id === card.projectId &&
+          item.organizationId === organizationId,
+      )
+    : undefined;
+  if (!card || !project) throw new Error("Test Card not found");
   card.state = cardState;
   audit("test_card.updated", "test_card", cardId, { state: cardState });
   return card;
@@ -625,18 +666,42 @@ export function createDemoReviewLink(
       item.id === projectId && item.organizationId === organizationId,
   );
   if (!project) throw new Error("Project not found");
-  audit("review_link.created", "project", projectId);
+  const token = randomBytes(32).toString("base64url");
+  state.reviewLinks.push({
+    tokenHash: hashCapabilityToken(token),
+    projectId,
+    organizationId,
+    expiresAt: new Date(Date.now() + 7 * 86_400_000).toISOString(),
+    createdAt: new Date().toISOString(),
+  });
+  audit("review_link.created", "project", projectId, {
+    expiresInDays: 7,
+  });
   return {
-    token: `review_${projectId}`,
-    url: `/review/review_${projectId}`,
+    token,
+    url: `/review/${token}`,
   };
 }
 
 export function getDemoReview(token: string) {
-  if (!token.startsWith("review_prj_")) return null;
-  const projectId = token.slice("review_".length);
-  const project = state.projects.find((item) => item.id === projectId);
+  if (token.length < 32) return null;
+  const tokenHash = hashCapabilityToken(token);
+  const link = state.reviewLinks.find(
+    (item) =>
+      item.tokenHash === tokenHash &&
+      !item.revokedAt &&
+      new Date(item.expiresAt).getTime() > Date.now(),
+  );
+  if (!link) return null;
+  const project = state.projects.find(
+    (item) =>
+      item.id === link.projectId &&
+      item.organizationId === link.organizationId,
+  );
   if (!project) return null;
+  audit("review_link.accessed", "project", project.id, {
+    tokenFingerprint: tokenHash.slice(0, 12),
+  });
   return {
     organization: state.organization,
     brand: state.brands.find((item) => item.id === project.brandId),
@@ -660,6 +725,11 @@ export async function produceApprovedDemoCards(
   projectId: string,
 ) {
   requireDemoOrganization(organizationId);
+  const project = state.projects.find(
+    (item) =>
+      item.id === projectId && item.organizationId === organizationId,
+  );
+  if (!project) throw new Error("Project not found");
   const approved = state.testCards.filter(
     (card) => card.projectId === projectId && card.state === "approved",
   );
