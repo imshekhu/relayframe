@@ -4,6 +4,8 @@ import { updateTestCardState } from "@/lib/demo-store";
 import {
   apiError,
   enforceMutationSecurity,
+  readBoundedJson,
+  RequestBodyError,
   requestContextFromRequest,
 } from "@/lib/request-context";
 
@@ -28,7 +30,15 @@ export async function PATCH(
   ]);
   if (!session) return apiError("Insufficient permission", 403);
   const organizationId = session.organizationId;
-  const parsed = updateSchema.safeParse(await request.json().catch(() => null));
+  let body: unknown;
+  try {
+    body = await readBoundedJson(request);
+  } catch (error) {
+    return error instanceof RequestBodyError
+      ? apiError(error.message, error.status)
+      : apiError("Invalid request body");
+  }
+  const parsed = updateSchema.safeParse(body);
   if (!parsed.success) return apiError("Invalid Test Card update", 422);
   const { cardId } = await context.params;
   try {

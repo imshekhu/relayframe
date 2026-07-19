@@ -9,6 +9,8 @@ import {
   apiError,
   enforceMutationSecurity,
   organizationFromRequest,
+  readBoundedJson,
+  RequestBodyError,
   requestContextFromRequest,
 } from "@/lib/request-context";
 
@@ -44,9 +46,11 @@ export async function POST(request: Request) {
   const organizationId = context.organizationId;
   let body: unknown;
   try {
-    body = await request.json();
-  } catch {
-    return apiError("Request body must be valid JSON");
+    body = await readBoundedJson(request, 96 * 1024);
+  } catch (error) {
+    return error instanceof RequestBodyError
+      ? apiError(error.message, error.status)
+      : apiError("Request body must be valid JSON");
   }
   const parsed = generationRequestSchema.safeParse(body);
   if (!parsed.success) {

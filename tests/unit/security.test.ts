@@ -3,6 +3,7 @@ import {
   enforceMutationSecurity,
   organizationFromRequest,
   requestContextFromRequest,
+  readBoundedJson,
   resetSecurityRateLimitsForTests,
 } from "@/lib/request-context";
 import {
@@ -147,5 +148,25 @@ describe("security boundary", () => {
     });
     expect(limited?.status).toBe(429);
     expect(limited?.headers.get("retry-after")).toBeTruthy();
+  });
+
+  it("bounds chunked JSON bodies even without Content-Length", async () => {
+    const encoder = new TextEncoder();
+    const request = new Request("https://relayframe.test/api/generations", {
+      method: "POST",
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode('{"prompt":"'));
+          controller.enqueue(encoder.encode("x".repeat(2_000)));
+          controller.enqueue(encoder.encode('"}'));
+          controller.close();
+        },
+      }),
+      duplex: "half",
+    } as RequestInit & { duplex: "half" });
+    await expect(readBoundedJson(request, 1_024)).rejects.toMatchObject({
+      name: "RequestBodyError",
+      status: 413,
+    });
   });
 });

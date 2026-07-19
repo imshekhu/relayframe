@@ -4,6 +4,8 @@ import { topUpDemoCredits } from "@/lib/demo-store";
 import {
   apiError,
   enforceMutationSecurity,
+  readBoundedJson,
+  RequestBodyError,
   requestContextFromRequest,
 } from "@/lib/request-context";
 import { isDemoMode } from "@/security/session";
@@ -19,9 +21,15 @@ export async function POST(request: Request) {
   const context = requestContextFromRequest(request, ["owner", "admin"]);
   if (!context) return apiError("Insufficient permission", 403);
   const organizationId = context.organizationId;
-  const parsed = creditTopUpSchema.safeParse(
-    await request.json().catch(() => null),
-  );
+  let body: unknown;
+  try {
+    body = await readBoundedJson(request);
+  } catch (error) {
+    return error instanceof RequestBodyError
+      ? apiError(error.message, error.status)
+      : apiError("Invalid request body");
+  }
+  const parsed = creditTopUpSchema.safeParse(body);
   if (!parsed.success) return apiError("Invalid credit package", 422);
   try {
     return NextResponse.json(
