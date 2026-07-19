@@ -62,6 +62,7 @@ import {
   type WorkspaceView,
 } from "@/hooks/use-workspace-navigation";
 import { useApiMutation } from "@/hooks/use-api-mutation";
+import { createClientRequestId } from "@/lib/client-id";
 
 type View = WorkspaceView;
 type Snapshot = WorkspaceSnapshot;
@@ -848,7 +849,7 @@ function Studio({
           modelId: modelId === "auto" ? "auto" : effectiveModelId,
           aspectRatio: effectiveAspectRatio,
           outputCount: effectiveOutputCount,
-          idempotencyKey: `ui-${crypto.randomUUID()}`,
+          idempotencyKey: `ui-${createClientRequestId()}`,
         }),
       });
       await onGenerated();
