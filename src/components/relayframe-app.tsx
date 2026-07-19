@@ -84,14 +84,14 @@ type Snapshot = {
 };
 
 const nav = [
-  { id: "home" as const, label: "Overview", icon: Gauge },
-  { id: "studio" as const, label: "Generate", icon: WandSparkles },
+  { id: "studio" as const, label: "Create", icon: WandSparkles },
   { id: "projects" as const, label: "Projects", icon: FolderKanban },
   { id: "library" as const, label: "Library", icon: Library },
-  { id: "jobs" as const, label: "Job center", icon: Activity },
 ];
 
 const secondaryNav = [
+  { id: "home" as const, label: "Overview", icon: Gauge },
+  { id: "jobs" as const, label: "Activity", icon: Activity },
   { id: "brand" as const, label: "Brand system", icon: Target },
   { id: "billing" as const, label: "Usage & billing", icon: CreditCard },
 ];
@@ -159,7 +159,7 @@ export function RelayFrameApp({
   initialSnapshot: Snapshot;
   models: ModelCapability[];
 }) {
-  const [view, setView] = useState<View>("home");
+  const [view, setView] = useState<View>("studio");
   const [snapshot, setSnapshot] = useState(initialSnapshot);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -242,7 +242,7 @@ export function RelayFrameApp({
         <button
           className="brand-lockup"
           type="button"
-          onClick={() => setView("home")}
+          onClick={() => setView("studio")}
           aria-label="RelayFrame overview"
         >
           <span className="brand-symbol">
@@ -269,7 +269,7 @@ export function RelayFrameApp({
         </button>
 
         <nav aria-label="Primary">
-          <p>Workspace</p>
+          <p>Create</p>
           {nav.map((item) => (
             <button
               key={item.id}
@@ -286,26 +286,13 @@ export function RelayFrameApp({
                 ) && <i className="nav-live" />}
             </button>
           ))}
-          <p>Manage</p>
-          {secondaryNav.map((item) => (
-            <button
-              key={item.id}
-              className={view === item.id ? "is-active" : ""}
-              type="button"
-              onClick={() => setView(item.id)}
-              title={item.label}
-            >
-              <item.icon size={17} />
-              <span>{item.label}</span>
-            </button>
-          ))}
           <button
             className="mobile-more"
             type="button"
             onClick={() => setSearchOpen(true)}
           >
             <MoreHorizontal size={17} />
-            <span>More</span>
+            <span>More tools</span>
           </button>
         </nav>
 
@@ -912,9 +899,9 @@ function Studio({
     <div className="studio-view">
       <div className="page-heading">
         <div>
-          <p className="eyebrow">Multi-model studio</p>
-          <h1>Generate</h1>
-          <p>Move from intent to reviewable media with cost and lineage intact.</p>
+          <p className="eyebrow">Prism creative studio</p>
+          <h1>What will you create?</h1>
+          <p>One idea, routed to the right model, with every decision preserved.</p>
         </div>
         <div className="model-health">
           <span><i /> {models.length} models available</span>
@@ -926,12 +913,32 @@ function Studio({
 
       <div className="studio-layout">
         <section className="generator-panel">
+          <div className="preset-carousel" aria-label="Creative presets">
+            {[
+              ["Product film", "Premium product hero in sculptural studio light, cinematic material detail"],
+              ["UGC story", "Authentic handheld creator story with a direct hook and product demonstration"],
+              ["Editorial", "High-fashion editorial composition, graphic color blocking, precise negative space"],
+              ["Launch ad", "Fast-paced launch campaign visual with bold typography-safe composition"],
+            ].map(([label, value], index) => (
+              <button
+                type="button"
+                key={label}
+                onClick={() => {
+                  setPrompt(value);
+                  onNotice(`${label} preset applied`);
+                }}
+              >
+                <i className={`preset-visual preset-${index}`} />
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
           <div className="operation-tabs" role="tablist" aria-label="Generation type">
             {[
-              ["text_to_image", ImageIcon, "Text → image"],
-              ["image_to_image", Layers3, "Edit image"],
-              ["text_to_video", Film, "Text → video"],
-              ["image_to_video", Play, "Image → video"],
+              ["text_to_image", ImageIcon, "Image"],
+              ["image_to_image", Layers3, "Edit"],
+              ["text_to_video", Film, "Video"],
+              ["image_to_video", Play, "Animate"],
             ].map(([id, Icon, label]) => {
               const TabIcon = Icon as typeof ImageIcon;
               return (
@@ -952,7 +959,7 @@ function Studio({
 
           <label className="prompt-field">
             <span>
-              Creative direction
+              Describe your idea
               <small>{prompt.length} / 4,000</small>
             </span>
             <textarea

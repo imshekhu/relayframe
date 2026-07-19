@@ -17,7 +17,9 @@ test("renders and navigates the complete SaaS workspace", async (
     if (message.type() === "error") errors.push(message.text());
   });
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /Good afternoon/ })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "What will you create?" }),
+  ).toBeVisible();
   if (!testInfo.project.name.includes("mobile")) {
     await expect(page.getByText("Northstar Creative")).toBeVisible();
   }
@@ -31,12 +33,8 @@ test("renders and navigates the complete SaaS workspace", async (
   await navigation.getByRole("button", { name: "Library" }).click();
   await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
 
-  if (testInfo.project.name.includes("mobile")) {
-    await navigation.getByRole("button", { name: "More" }).click();
-    await page.getByRole("button", { name: "Job center" }).click();
-  } else {
-    await navigation.getByRole("button", { name: "Job center" }).click();
-  }
+  await navigation.getByRole("button", { name: "More tools" }).click();
+  await page.getByRole("button", { name: "Activity" }).click();
   await expect(page.getByRole("heading", { name: "Job center" })).toBeVisible();
   expect(errors).toEqual([]);
 });
@@ -69,7 +67,7 @@ test("runs a reserved generation through completion and asset publication", asyn
   };
   await page.goto("/");
   const navigation = page.getByRole("navigation", { name: "Primary" });
-  await navigation.getByRole("button", { name: "Generate" }).click();
+  await navigation.getByRole("button", { name: "Create" }).click();
   const generate = page.getByRole("button", {
     name: /Generate 2 concepts/,
   });
@@ -79,7 +77,8 @@ test("runs a reserved generation through completion and asset publication", asyn
     "Generation reserved and queued",
   );
 
-  await navigation.getByRole("button", { name: "Job center" }).click();
+  await navigation.getByRole("button", { name: "More tools" }).click();
+  await page.getByRole("button", { name: "Activity" }).click();
   await expect(page.locator(".job-row")).toHaveCount(
     initial.generations.length + 1,
   );
@@ -111,7 +110,7 @@ test("supports global search and functional studio prompt tools", async ({
 
   await page
     .getByRole("navigation", { name: "Primary" })
-    .getByRole("button", { name: "Generate" })
+    .getByRole("button", { name: "Create" })
     .click();
   const prompt = page.getByLabel("Creative direction");
   await page.getByRole("button", { name: "Apply brand" }).click();
@@ -167,6 +166,11 @@ test("supports asset import, details, brand versioning, credits, and settings", 
 }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "One workspace mutation journey");
   await page.goto("/");
+  await page
+    .getByRole("navigation", { name: "Primary" })
+    .getByRole("button", { name: "More tools" })
+    .click();
+  await page.getByRole("button", { name: "Overview" }).click();
   await page.getByRole("button", { name: "Import assets" }).click();
   await page.getByLabel("Asset name").fill("Launch packaging reference");
   await page
@@ -219,6 +223,11 @@ test("creates a project through the visible overview action", async ({
 }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "One project mutation");
   await page.goto("/");
+  await page
+    .getByRole("navigation", { name: "Primary" })
+    .getByRole("button", { name: "More tools" })
+    .click();
+  await page.getByRole("button", { name: "Overview" }).click();
   await page.getByRole("button", { name: "New project" }).click();
   await page.getByLabel("Project name").fill("Autumn product sprint");
   await page
@@ -260,6 +269,11 @@ test("has no serious automated accessibility violations", async ({ page }) => {
 
 test("keeps interactive dialogs accessible", async ({ page }) => {
   await page.goto("/");
+  await page
+    .getByRole("navigation", { name: "Primary" })
+    .getByRole("button", { name: "More tools" })
+    .click();
+  await page.getByRole("button", { name: "Overview" }).click();
   await page.getByRole("button", { name: "Import assets" }).click();
   await expect(
     page.getByRole("heading", { name: "Import source media" }),
@@ -281,12 +295,14 @@ test("fits and navigates at a compact touch viewport", async ({
   ).toBeVisible();
   await page
     .getByRole("navigation", { name: "Primary" })
-    .getByRole("button", { name: "Generate" })
+    .getByRole("button", { name: "Create" })
     .click();
-  await expect(page.getByRole("heading", { name: "Generate" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "What will you create?" }),
+  ).toBeVisible();
   await page
     .getByRole("navigation", { name: "Primary" })
-    .getByRole("button", { name: "More" })
+    .getByRole("button", { name: "More tools" })
     .click();
   await page.getByRole("button", { name: "Usage & billing" }).click();
   await expect(
