@@ -280,10 +280,6 @@ export function RelayFrameApp({
             >
               <item.icon size={17} />
               <span>{item.label}</span>
-              {item.id === "jobs" &&
-                snapshot.generations.some(
-                  (generation) => generation.state === "provider_running",
-                ) && <i className="nav-live" />}
             </button>
           ))}
           <button
