@@ -52,15 +52,17 @@ export async function POST(request: Request) {
   }
   const parsed = generationRequestSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(
+    return apiError(
+      "Invalid generation request",
+      422,
+      undefined,
+      "VALIDATION_FAILED",
       {
-        error: "Invalid generation request",
         issues: parsed.error.issues.map((issue) => ({
           path: issue.path.join("."),
           message: issue.message,
         })),
       },
-      { status: 422 },
     );
   }
 

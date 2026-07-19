@@ -84,6 +84,9 @@ test("runs a reserved generation through completion and asset publication", asyn
   await expect(page.getByRole("status")).toContainText(
     "Generation reserved and queued",
   );
+  await expect(page.locator(".generation-dock-grid article")).toHaveCount(
+    initial.generations.length + 1,
+  );
 
   await navigation.getByRole("button", { name: "More tools" }).click();
   await page.getByRole("button", { name: "Activity" }).click();
@@ -268,6 +271,8 @@ test("rejects malformed and cross-tenant API requests", async ({ request }) => {
     },
   });
   expect(invalidGeneration.status()).toBe(422);
+  expect(invalidGeneration.headers()["x-request-id"]).toBeTruthy();
+  expect((await invalidGeneration.json()).code).toBe("VALIDATION_FAILED");
 
   const crossSite = await request.post("/api/projects", {
     headers: {

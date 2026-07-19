@@ -46,10 +46,11 @@ export function apiError(
   status = 400,
   headers?: HeadersInit,
   code = "REQUEST_FAILED",
+  details?: Record<string, unknown>,
 ) {
   const requestId = randomUUID();
   return NextResponse.json(
-    { error: message, code, requestId },
+    { error: message, code, requestId, ...(details ? { details } : {}) },
     {
       status,
       headers: {
